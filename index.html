@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wanderlust</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK (für echten Login) -->
+    <script type="module" src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+</head>
+<body class="bg-gradient-to-br from-[#022c22] to-[#090d0c] text-neutral-100 min-h-screen">
+    <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col">
+        <header class="p-6 flex justify-between items-center border-b border-[#022c22]">
+            <h1 class="text-2xl font-bold bg-gradient-to-r from-white to-[#b87333] bg-clip-text text-transparent font-['Space_Grotesk']">Wanderlust</h1>
+            <button id="login-btn" class="text-[#b87333] border border-[#b87333] px-4 py-2 rounded-full text-xs font-semibold hover:bg-[#b87333] hover:text-white transition">Login</button>
+        </header>
+
+        <main id="dashboard" class="flex-1 p-6 space-y-6">
+            <div id="stats" class="bg-[#022c22]/50 p-4 rounded-2xl border border-[#b87333]/30">
+                <p class="text-[10px] text-[#b87333] uppercase tracking-widest font-bold">Gesamtdistanz</p>
+                <h2 id="total-dist" class="text-3xl font-bold font-['Space_Grotesk']">0 km</h2>
+            </div>
+            
+            <div id="trips-container" class="space-y-4"></div>
+            
+            <button onclick="openNewTripModal()" class="w-full py-4 bg-[#b87333] text-[#022c22] rounded-2xl font-bold shadow-lg">Neuen Trip erstellen</button>
+        </main>
+        
+        <nav class="fixed bottom-0 w-full max-w-md bg-[#090d0c] border-t border-[#022c22] p-4 flex justify-around">
+            <button onclick="showDashboard()" class="text-[#b87333] flex flex-col items-center gap-1 text-[10px] uppercase font-bold"><i class="fa-solid fa-compass"></i> Entdecken</button>
+            <button onclick="showFlashback()" class="text-[#b87333] flex flex-col items-center gap-1 text-[10px] uppercase font-bold"><i class="fa-solid fa-film"></i> Rückblick</button>
+        </nav>
+    </div>
+    <script src="script.js" type="module"></script>
+</body>
+</html>

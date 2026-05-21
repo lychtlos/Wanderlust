@@ -1,0 +1,28 @@
+:root {
+    --copper: #b87333;
+    --forest: #022c22;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+.font-display {
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+input, textarea {
+    background: #090d0c;
+    border: 1px solid var(--forest);
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* Scrollbar Anpassung */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--copper); border-radius: 10px; }

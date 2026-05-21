@@ -710,6 +710,19 @@
                 <button onclick="closeActiveModal(); switchAuthTab('signup'); toggleProfileCenter();" class="flex-grow py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">E-Mail Registrierung</button>
             </div>
         </div>
+
+        <!-- Modal: Lightbox for Memories (Image or Text) -->
+        <div id="modal-lightbox" class="hidden bg-forest-900/95 border border-bronze-500/20 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-forest-900 pb-3">
+                <h3 id="lightbox-title" class="font-display font-bold text-base text-neutral-100">Erinnerung</h3>
+                <button onclick="closeActiveModal()" class="text-neutral-400 hover:text-neutral-200 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="lightbox-content" class="flex flex-col items-center justify-center space-y-3">
+                <!-- Content dynamically injected -->
+            </div>
+        </div>
     </div>
 
     <!-- OVERLAY: Story Flashback Player (Google Photos Style) -->
@@ -952,7 +965,7 @@
                 if (activeTripId) {
                     const currentTrip = tripsList.find(t => t.id === activeTripId);
                     if (currentTrip) {
-                        showTripDetailView(activeTripId);
+                        updateTripDetailDOM(currentTrip);
                     } else {
                         showDashboardView();
                     }
@@ -1540,13 +1553,26 @@
 
         // NAVIGATION SWITCHES
         window.showTripDetailView = function(tripId) {
-            const dashboard = document.getElementById('view-dashboard');
-            const detailView = document.getElementById('view-trip-details');
-            
             activeTripId = tripId;
             const trip = tripsList.find(t => t.id === tripId);
             if (!trip) return;
 
+            updateTripDetailDOM(trip);
+
+            const btnLeft = document.getElementById('nav-btn-left');
+            if (btnLeft) {
+                btnLeft.className = "flex flex-col items-center justify-center space-y-1 text-neutral-400 hover:text-bronze-500 transition-all";
+                btnLeft.onclick = showDashboardView;
+            }
+
+            const dashboard = document.getElementById('view-dashboard');
+            const detailView = document.getElementById('view-trip-details');
+            dashboard.classList.add('hidden');
+            detailView.classList.remove('hidden');
+        }
+
+        // Seamless update of the details DOM without flickering or transit shifts
+        function updateTripDetailDOM(trip) {
             const tIcon = transportIcons[trip.transport] || transportIcons['Auto'];
             const pIcon = purposeIcons[trip.purpose] || purposeIcons['Sonstiges'];
 
@@ -1557,16 +1583,7 @@
             document.getElementById('detail-trip-dates').innerText = `${formatGermanDate(trip.dateStart)} - ${formatGermanDate(trip.dateEnd)}`;
             document.getElementById('detail-trip-distance').innerText = `${trip.distance.toLocaleString('de-DE')} km (${trip.transport})`;
 
-            const btnLeft = document.getElementById('nav-btn-left');
-            if (btnLeft) {
-                btnLeft.className = "flex flex-col items-center justify-center space-y-1 text-neutral-400 hover:text-bronze-500 transition-all";
-                btnLeft.onclick = showDashboardView;
-            }
-
             renderTripMemoriesGrid();
-
-            dashboard.classList.add('hidden');
-            detailView.classList.remove('hidden');
         }
 
         window.showDashboardView = function() {
@@ -1604,8 +1621,14 @@
 
             trip.memories.forEach(memory => {
                 const element = document.createElement('div');
-                element.className = "break-inside-avoid bg-forest-900/20 border border-forest-900/40 rounded-2xl overflow-hidden p-3 space-y-2 mb-3 shadow-md relative";
+                element.className = "break-inside-avoid bg-forest-900/20 border border-forest-900/40 hover:border-bronze-500/30 rounded-2xl overflow-hidden p-3 space-y-2 mb-3 shadow-md relative cursor-pointer transition duration-155 hover:scale-[1.01]";
                 
+                // Clicking on a card launches the dedicated lightbox popup
+                element.onclick = (e) => {
+                    if (e.target.closest('button')) return; // ignore delete action
+                    openLightbox(memory.id);
+                };
+
                 if (memory.type === 'note') {
                     element.innerHTML = `
                         <p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p>
@@ -1626,6 +1649,32 @@
                 }
                 grid.appendChild(element);
             });
+        }
+
+        window.openLightbox = function(memoryId) {
+            const trip = tripsList.find(t => t.id === activeTripId);
+            if (!trip) return;
+            const memory = trip.memories.find(m => m.id === memoryId);
+            if (!memory) return;
+
+            const title = document.getElementById('lightbox-title');
+            const content = document.getElementById('lightbox-content');
+            
+            if (memory.type === 'note') {
+                title.innerText = "Anekdote lesen";
+                content.innerHTML = `
+                    <div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">
+                        "${escapeHTML(memory.text)}"
+                    </div>
+                `;
+            } else {
+                title.innerText = memory.isAI ? "🎨 KI Postkarte" : "📸 Foto";
+                content.innerHTML = `
+                    <img src="${memory.image}" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 select-none">
+                    ${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}
+                `;
+            }
+            showModal('modal-lightbox');
         }
 
         window.deleteMemory = async function(memoryId) {

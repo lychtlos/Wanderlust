@@ -20,6 +20,7 @@
             -webkit-tap-highlight-color: transparent;
             height: 100vh;
             height: 100dvh;
+            background: linear-gradient(to bottom, #022c22, #090d0c) !important;
         }
         .font-display {
             font-family: 'Space Grotesk', sans-serif;
@@ -79,7 +80,7 @@
         }
     </script>
 </head>
-<body class="bg-gradient-to-br from-forest-900 to-forest-950 text-neutral-100 h-dvh overflow-hidden flex flex-col antialiased">
+<body class="text-neutral-100 h-dvh overflow-hidden flex flex-col antialiased">
 
     <div class="flex-1 flex flex-col relative max-w-lg w-full mx-auto bg-forest-950/40 backdrop-blur-md shadow-2xl overflow-hidden border-x border-forest-900/10">
         
@@ -289,6 +290,12 @@
 
             <!-- Trip Form -->
             <form id="form-new-trip" class="space-y-4" onsubmit="saveNewTrip(event)">
+                <!-- Trip Name Field -->
+                <div>
+                    <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Name / Bezeichnung des Trips</label>
+                    <input type="text" id="trip-name-input" placeholder="z. B. Roadtrip Skandinavien" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2.5 text-xs text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off">
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <!-- Origin / Starting location -->
                     <div class="relative">
@@ -420,7 +427,7 @@
                 <h3 class="font-display font-bold text-base text-neutral-100">Abenteuer löschen?</h3>
             </div>
             <p class="text-xs text-neutral-300 leading-relaxed">
-                Möchtest du das Abenteuer nach <strong id="delete-trip-dest-name"></strong> und alle Pinnwand-Einträge wirklich unwiderruflich löschen?
+                Möchtest du das Abenteuer <strong id="delete-trip-dest-name"></strong> und alle Pinnwand-Einträge wirklich unwiderruflich löschen?
             </p>
             <div class="flex space-x-3 pt-2">
                 <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
@@ -577,6 +584,13 @@
                 </button>
             </div>
 
+            <!-- Complete Discoverable Explorer ID -->
+            <div class="bg-forest-950/50 border border-forest-900 rounded-2xl p-4 space-y-1 text-left">
+                <span class="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Deine Entdecker-ID (UID)</span>
+                <p id="profile-user-id" class="text-xs font-mono text-bronze-400 select-all break-all cursor-pointer" title="Klicken zum Kopieren" onclick="copyToClipboard(this.innerText); showToast('ID kopiert!', 'success')"></p>
+                <span class="text-[8px] text-neutral-500 block leading-none">Tippe auf die ID, um sie zu kopieren und für Teameinladungen zu teilen.</span>
+            </div>
+
             <!-- Local Only Indicator -->
             <div id="profile-local-alert" class="bg-bronze-500/10 border border-bronze-500/20 rounded-2xl p-4 flex items-start space-x-3">
                 <i class="fa-solid fa-circle-exclamation text-bronze-500 mt-0.5"></i>
@@ -630,6 +644,53 @@
                 <button onclick="performSignOut()" class="w-full py-3 bg-forest-950 hover:bg-forest-900 border border-forest-900 rounded-xl text-xs text-neutral-300 font-bold font-display uppercase tracking-wider transition">
                     Abmelden
                 </button>
+            </div>
+        </div>
+
+        <!-- Modal: Unauthorized Domain Error Helper -->
+        <div id="modal-auth-domain-error" class="hidden bg-forest-900 border border-amber-500/30 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative overflow-hidden">
+            <div class="flex items-center space-x-3 text-amber-500 pb-2 border-b border-forest-900">
+                <i class="fa-solid fa-shield-halved text-xl"></i>
+                <h3 class="font-display font-bold text-base text-neutral-100">Domain nicht autorisiert</h3>
+            </div>
+            <p class="text-xs text-neutral-300 leading-relaxed">
+                Google Auth verweigert die Anmeldung in dieser Sandbox-/Vorschau-Umgebung, da die aktuelle Web-Domain noch nicht in deiner Firebase-Konsole freigeschaltet ist.
+            </p>
+            
+            <!-- HIGHLY VISIBLE INSTANT ALTERNATIVE CALLOUT -->
+            <div class="bg-bronze-500/10 border border-bronze-500/30 rounded-2xl p-3.5 space-y-1 text-left">
+                <span class="text-[10px] font-bold text-bronze-400 uppercase tracking-wider block font-display flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-400"></i>
+                    <span>Sofortige Alternative (Ohne Konfiguration)</span>
+                </span>
+                <p class="text-[11px] text-neutral-300 leading-relaxed">
+                    Nutze einfach die Registrierung mit <strong>E-Mail & Passwort</strong>! Diese benötigt keine Domain-Freigabe und funktioniert in dieser Vorschau-Umgebung sofort und ohne zusätzliche Einstellungen.
+                </p>
+            </div>
+            
+            <div class="bg-forest-950/50 border border-forest-900 rounded-2xl p-4 space-y-2 text-left">
+                <span class="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block font-display">Diese Domain für Google-Anmeldung freischalten:</span>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="unauthorized-domain-val" readonly class="flex-1 bg-forest-950 border border-forest-900 rounded-xl px-3 py-2 text-xs text-bronze-400 font-mono focus:outline-none">
+                    <button onclick="copyUnauthorizedDomain()" class="px-3 py-2 bg-bronze-600 hover:bg-bronze-500 text-forest-950 text-xs font-bold rounded-xl transition whitespace-nowrap font-display uppercase tracking-wider">
+                        Kopieren
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-2 text-xs text-neutral-300">
+                <span class="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block font-display">Schritt-für-Schritt Anleitung (Google Auth):</span>
+                <ol class="list-decimal list-inside space-y-1 text-[11px] text-neutral-400">
+                    <li>Öffne deine <a href="https://console.firebase.google.com/" target="_blank" class="text-bronze-400 underline hover:text-bronze-300">Firebase-Konsole</a>.</li>
+                    <li>Gehe zu <strong>Authentication</strong> &rarr; <strong>Settings</strong>.</li>
+                    <li>Klicke links auf <strong>Authorized domains</strong> (Autorisierte Domains).</li>
+                    <li>Klicke auf <strong>Add domain</strong> und füge die oben kopierte Domain hinzu.</li>
+                </ol>
+            </div>
+
+            <div class="flex space-x-3 pt-2">
+                <button onclick="closeActiveModal()" class="flex-grow py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Schließen</button>
+                <button onclick="closeActiveModal(); switchAuthTab('signup'); toggleProfileCenter();" class="flex-grow py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">E-Mail Registrierung</button>
             </div>
         </div>
     </div>
@@ -695,6 +756,15 @@
             createUserWithEmailAndPassword, 
             updateProfile 
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import {
+            getFirestore,
+            collection,
+            doc,
+            setDoc,
+            onSnapshot,
+            updateDoc,
+            deleteDoc
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Configuration (Real credentials provided)
         const firebaseConfig = {
@@ -706,9 +776,11 @@
             appId: "1:638626664196:web:055e66c3f7757b0a7d0a51"
         };
 
-        // Initialize App & Auth
+        // Initialize App, Auth & Firestore
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = "wanderlust-app";
 
         // CORE STATES
         let activeUser = {
@@ -720,6 +792,7 @@
         let activeTripId = null;
         let activeModalId = null;
         let editingTripId = null;
+        let firestoreUnsubscribe = null;
         
         let tempStartCoords = null;
         let tempDestCoords = null;
@@ -769,18 +842,8 @@
             });
         });
 
-        // Initialize local cache fallback structure
+        // Initialize and handle real-time sync subscription switching
         function initApp() {
-            const cache = localStorage.getItem('wanderlust_trips_cache');
-            if (cache) {
-                try {
-                    tripsList = JSON.parse(cache);
-                } catch(e) {
-                    tripsList = [];
-                }
-            }
-            
-            // Real Firebase state listener
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     activeUser = {
@@ -789,11 +852,19 @@
                         email: user.email,
                         photoURL: user.photoURL
                     };
+                    // Migrate legacy data if existing
+                    migrateLocalDataToCloud(user.uid);
+                    setupFirestoreSubscription();
                 } else {
                     setGuestUser();
+                    if (firestoreUnsubscribe) {
+                        firestoreUnsubscribe();
+                        firestoreUnsubscribe = null;
+                    }
+                    loadLocalCache();
+                    renderDashboardTrips();
+                    updateUIState();
                 }
-                renderDashboardTrips();
-                updateUIState();
             });
         }
 
@@ -803,6 +874,78 @@
                 displayName: 'Gast-Entdecker',
                 email: 'lokal@wanderlust.de'
             };
+        }
+
+        function loadLocalCache() {
+            const cache = localStorage.getItem('wanderlust_trips_cache');
+            if (cache) {
+                try {
+                    tripsList = JSON.parse(cache);
+                } catch(e) {
+                    tripsList = [];
+                }
+            } else {
+                tripsList = [];
+            }
+        }
+
+        // Real-time Firestore Syncer
+        function setupFirestoreSubscription() {
+            if (firestoreUnsubscribe) firestoreUnsubscribe();
+
+            const tripsColl = collection(db, 'artifacts', appId, 'public', 'data', 'trips');
+            firestoreUnsubscribe = onSnapshot(tripsColl, (snapshot) => {
+                const fetched = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.ownerId === activeUser.uid) {
+                        fetched.push({ id: doc.id, ...data });
+                    }
+                });
+                // Memory Sort
+                fetched.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                tripsList = fetched;
+                
+                renderDashboardTrips();
+                updateUIState();
+
+                if (activeTripId) {
+                    const currentTrip = tripsList.find(t => t.id === activeTripId);
+                    if (currentTrip) {
+                        showTripDetailView(activeTripId);
+                    } else {
+                        showDashboardView();
+                    }
+                }
+            }, (error) => {
+                console.error("Firestore loading failure:", error);
+                showToast("Fehler bei Echtzeit-Synchronisation.", "error");
+            });
+        }
+
+        // Automatic Data Migrator
+        async function migrateLocalDataToCloud(userUid) {
+            const cache = localStorage.getItem('wanderlust_trips_cache');
+            if (!cache) return;
+            try {
+                const localTrips = JSON.parse(cache);
+                if (localTrips && localTrips.length > 0) {
+                    for (const trip of localTrips) {
+                        const tripId = trip.id || 'trip_' + Date.now() + Math.floor(Math.random() * 1000);
+                        const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', tripId);
+                        await setDoc(tripDocRef, {
+                            ...trip,
+                            id: tripId,
+                            ownerId: userUid,
+                            timestamp: trip.timestamp || Date.now()
+                        }, { merge: true });
+                    }
+                    localStorage.removeItem('wanderlust_trips_cache');
+                    showToast("Lokale Daten erfolgreich in die Cloud migriert! ☁️", "success");
+                }
+            } catch(e) {
+                console.error("Migration failed:", e);
+            }
         }
 
         // Autocomplete geocoder
@@ -971,6 +1114,7 @@
             tempStartCoords = trip.startCoords || null;
             tempDestCoords = trip.destCoords || null;
 
+            document.getElementById('trip-name-input').value = trip.name || "";
             document.getElementById('trip-start-input').value = trip.origin;
             document.getElementById('trip-destination-input').value = trip.destination;
             document.getElementById('trip-date-start').value = trip.dateStart;
@@ -994,17 +1138,29 @@
         window.confirmDeleteTrip = function() {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
-            document.getElementById('delete-trip-dest-name').innerText = trip.destination;
+            document.getElementById('delete-trip-dest-name').innerText = trip.name || trip.destination;
             showModal('modal-confirm-delete');
         }
 
-        window.executeDeleteTrip = function() {
+        window.executeDeleteTrip = async function() {
             if (!activeTripId) return;
-            tripsList = tripsList.filter(t => t.id !== activeTripId);
-            saveTripsToLocalStorage();
-            closeActiveModal();
-            showToast("Abenteuer gelöscht.", "success");
-            showDashboardView();
+            if (activeUser.uid === 'local_guest') {
+                tripsList = tripsList.filter(t => t.id !== activeTripId);
+                saveTripsToLocalStorage();
+                closeActiveModal();
+                showToast("Abenteuer gelöscht.", "success");
+                showDashboardView();
+            } else {
+                try {
+                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                    await deleteDoc(tripDocRef);
+                    closeActiveModal();
+                    showToast("Abenteuer permanent gelöscht.", "success");
+                    showDashboardView();
+                } catch(e) {
+                    showToast("Fehler beim Löschen.", "error");
+                }
+            }
         }
 
         window.toggleProfileCenter = function() {
@@ -1012,6 +1168,9 @@
             const loginBox = document.getElementById('auth-box');
             const infoBox = document.getElementById('profile-info-box');
             const localAlert = document.getElementById('profile-local-alert');
+
+            // Set the full immutable copyable Explorer ID
+            document.getElementById('profile-user-id').innerText = activeUser.uid;
 
             if (activeUser.uid === 'local_guest') {
                 if (loginBox) loginBox.classList.remove('hidden');
@@ -1081,7 +1240,7 @@
             }
         }
 
-        // Real Google Authentication Popup with intelligent domain-unauthorized catcher
+        // Real Google Authentication Popup
         window.signInWithGoogle = async function() {
             const provider = new GoogleAuthProvider();
             try {
@@ -1090,9 +1249,18 @@
                 closeActiveModal();
             } catch (error) {
                 console.error("Google Auth Error:", error);
-                if (error.code === 'auth/unauthorized-domain') {
-                    const currentDomain = window.location.hostname || "deine Domain";
-                    showToast(`Domain nicht autorisiert! Bitte füge "${currentDomain}" in deiner Firebase Console unter Authentication -> Settings -> Authorized domains hinzu.`, "error");
+                if (error.code === 'auth/unauthorized-domain' || error.message.includes('auth/unauthorized-domain')) {
+                    let currentDomain = "localhost";
+                    try {
+                        currentDomain = window.location.hostname || (document.referrer ? new URL(document.referrer).hostname : "") || window.location.host || "localhost";
+                    } catch(e) {
+                        console.error("Could not resolve hostname", e);
+                    }
+                    const domainInput = document.getElementById('unauthorized-domain-val');
+                    if (domainInput) {
+                        domainInput.value = currentDomain;
+                    }
+                    showModal('modal-auth-domain-error');
                 } else {
                     showToast("Google-Anmeldung abgebrochen oder fehlgeschlagen.", "error");
                 }
@@ -1110,7 +1278,6 @@
             }
         }
 
-        // Translates common Firebase errors for the user
         function translateAuthError(code) {
             switch (code) {
                 case 'auth/invalid-credential': return 'Ungültige Anmeldedaten.';
@@ -1124,6 +1291,7 @@
         // TRIPS MANAGEMENT
         window.saveNewTrip = async function(event) {
             event.preventDefault();
+            const name = document.getElementById('trip-name-input').value.trim();
             const origin = document.getElementById('trip-start-input').value.trim();
             const destination = document.getElementById('trip-destination-input').value.trim();
             const dateStart = document.getElementById('trip-date-start').value;
@@ -1131,7 +1299,6 @@
             const purpose = document.querySelector('input[name="trip-purpose"]:checked').value;
             const transport = document.querySelector('input[name="trip-transport"]:checked').value;
 
-            // Route based calculation
             let distance = 0;
             if (tempStartCoords && tempDestCoords) {
                 distance = await calculateDistanceByTransport(tempStartCoords[0], tempStartCoords[1], tempDestCoords[0], tempDestCoords[1], transport);
@@ -1139,26 +1306,58 @@
                 distance = Math.floor(Math.random() * 400) + 100;
             }
 
-            if (editingTripId) {
-                const trip = tripsList.find(t => t.id === editingTripId);
-                if (trip) {
-                    trip.origin = origin;
-                    trip.destination = destination;
-                    trip.dateStart = dateStart;
-                    trip.dateEnd = dateEnd;
-                    trip.purpose = purpose;
-                    trip.transport = transport;
-                    trip.distance = distance;
-                    trip.startCoords = tempStartCoords;
-                    trip.destCoords = tempDestCoords;
+            if (activeUser.uid === 'local_guest') {
+                if (editingTripId) {
+                    const trip = tripsList.find(t => t.id === editingTripId);
+                    if (trip) {
+                        trip.name = name;
+                        trip.origin = origin;
+                        trip.destination = destination;
+                        trip.dateStart = dateStart;
+                        trip.dateEnd = dateEnd;
+                        trip.purpose = purpose;
+                        trip.transport = transport;
+                        trip.distance = distance;
+                        trip.startCoords = tempStartCoords;
+                        trip.destCoords = tempDestCoords;
+                    }
+                    saveTripsToLocalStorage();
+                    showToast("Trip erfolgreich aktualisiert! ✍️", "success");
+                    closeActiveModal();
+                    showTripDetailView(editingTripId);
+                } else {
+                    const newTrip = {
+                        id: 'trip_' + Date.now(),
+                        name: name,
+                        origin: origin,
+                        destination: destination,
+                        dateStart: dateStart,
+                        dateEnd: dateEnd,
+                        purpose: purpose,
+                        transport: transport,
+                        distance: distance,
+                        startCoords: tempStartCoords,
+                        destCoords: tempDestCoords,
+                        memories: [],
+                        timestamp: Date.now()
+                    };
+                    tripsList.unshift(newTrip);
+                    saveTripsToLocalStorage();
+                    showToast(`Trip erfolgreich geplant! 🏕️`, "success");
+                    closeActiveModal();
                 }
-                saveTripsToLocalStorage();
-                showToast(`Trip nach ${destination} erfolgreich aktualisiert! ✍️`, "success");
-                closeActiveModal();
-                showTripDetailView(editingTripId);
+                renderDashboardTrips();
+                updateUIState();
             } else {
-                const newTrip = {
-                    id: 'trip_' + Date.now(),
+                const id = editingTripId || 'trip_' + Date.now();
+                const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', id);
+                
+                const existingTrip = tripsList.find(t => t.id === id);
+                const memories = existingTrip ? (existingTrip.memories || []) : [];
+
+                const payload = {
+                    id: id,
+                    name: name,
                     origin: origin,
                     destination: destination,
                     dateStart: dateStart,
@@ -1168,17 +1367,21 @@
                     distance: distance,
                     startCoords: tempStartCoords,
                     destCoords: tempDestCoords,
-                    memories: []
+                    memories: memories,
+                    ownerId: activeUser.uid,
+                    timestamp: existingTrip ? (existingTrip.timestamp || Date.now()) : Date.now()
                 };
 
-                tripsList.unshift(newTrip);
-                saveTripsToLocalStorage();
-                showToast(`Trip nach ${destination} erfolgreich geplant! 🏕️`, "success");
-                closeActiveModal();
+                try {
+                    await setDoc(tripDocRef, payload, { merge: true });
+                    showToast(editingTripId ? "Trip erfolgreich aktualisiert! ✍️" : "Trip erfolgreich in die Cloud übertragen! ☁️", "success");
+                    closeActiveModal();
+                    if (editingTripId) showTripDetailView(id);
+                } catch(e) {
+                    console.error("Firestore sync write failed:", e);
+                    showToast("Fehler beim Cloud-Speichern.", "error");
+                }
             }
-            
-            renderDashboardTrips();
-            updateUIState();
         }
 
         function saveTripsToLocalStorage() {
@@ -1200,7 +1403,6 @@
                 if (backupCta) backupCta.classList.add('hidden');
             }
 
-            // Cumulating entire travel distance stats
             let totalDist = 0;
             tripsList.forEach(t => { if (t.distance) totalDist += t.distance; });
 
@@ -1242,11 +1444,14 @@
                                 ${pIcon} <span>${escapeHTML(trip.purpose)}</span>
                             </span>
                         </div>
-                        <h4 class="font-display font-bold text-sm text-neutral-100">${escapeHTML(trip.destination)}</h4>
+                        <h4 class="font-display font-bold text-sm text-neutral-100">${escapeHTML(trip.name || trip.destination)}</h4>
                         <p class="text-[10px] text-neutral-400 font-sans flex items-center space-x-1">
                             <span>${escapeHTML(trip.origin || 'Startpunkt')}</span>
                             <span>➔</span>
-                            <span>${formatGermanDate(trip.dateStart)} - ${formatGermanDate(trip.dateEnd)}</span>
+                            <span>${escapeHTML(trip.destination)}</span>
+                        </p>
+                        <p class="text-[9px] text-neutral-500 font-sans leading-none">
+                            ${formatGermanDate(trip.dateStart)} - ${formatGermanDate(trip.dateEnd)}
                         </p>
                     </div>
                     <div class="text-right shrink-0">
@@ -1267,22 +1472,19 @@
             const trip = tripsList.find(t => t.id === tripId);
             if (!trip) return;
 
-            // Header mapping with streamlined icons
             const tIcon = transportIcons[trip.transport] || transportIcons['Auto'];
             const pIcon = purposeIcons[trip.purpose] || purposeIcons['Sonstiges'];
 
             document.getElementById('detail-trip-transport').innerHTML = tIcon;
             document.getElementById('detail-trip-purpose').innerHTML = `${pIcon} <span class="ml-1">${trip.purpose}</span>`;
-            document.getElementById('detail-trip-title').innerText = trip.destination;
+            document.getElementById('detail-trip-title').innerText = trip.name || trip.destination;
             document.getElementById('detail-trip-start').innerText = trip.origin || 'Heimatort';
             document.getElementById('detail-trip-dates').innerText = `${formatGermanDate(trip.dateStart)} - ${formatGermanDate(trip.dateEnd)}`;
             document.getElementById('detail-trip-distance').innerText = `${trip.distance.toLocaleString('de-DE')} km (${trip.transport})`;
 
-            // Nav item updates
             const btnLeft = document.getElementById('nav-btn-left');
             if (btnLeft) {
                 btnLeft.className = "flex flex-col items-center justify-center space-y-1 text-neutral-400 hover:text-bronze-500 transition-all";
-                // Action on left element switches back to dashboard overview
                 btnLeft.onclick = showDashboardView;
             }
 
@@ -1351,14 +1553,25 @@
             });
         }
 
-        window.deleteMemory = function(memoryId) {
+        window.deleteMemory = async function(memoryId) {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
 
             trip.memories = trip.memories.filter(m => m.id !== memoryId);
-            saveTripsToLocalStorage();
-            showToast("Erinnerung gelöscht.", "info");
-            renderTripMemoriesGrid();
+
+            if (activeUser.uid === 'local_guest') {
+                saveTripsToLocalStorage();
+                showToast("Erinnerung gelöscht.", "info");
+                renderTripMemoriesGrid();
+            } else {
+                try {
+                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                    await updateDoc(tripDocRef, { memories: trip.memories });
+                    showToast("Erinnerung synchronisiert gelöscht.", "info");
+                } catch(e) {
+                    showToast("Fehler beim Cloud-Löschen.", "error");
+                }
+            }
         }
 
         // GEMINI COMPANION CONCIERGE INTEGRATION
@@ -1415,7 +1628,6 @@
                 promptLabel = "🎒 Smarte Packliste";
             }
             
-            // Append User prompt to output
             const userMsgEl = document.createElement('div');
             userMsgEl.className = "bg-forest-950/60 border border-forest-900 rounded-2xl p-3 text-neutral-300 space-y-1 text-right ml-6";
             userMsgEl.innerHTML = `
@@ -1425,7 +1637,6 @@
             container.appendChild(userMsgEl);
             container.scrollTop = container.scrollHeight;
             
-            // Loading placeholder
             const typingPlaceholder = document.createElement('div');
             typingPlaceholder.className = "bg-forest-950/20 border border-bronze-500/10 rounded-2xl p-4 text-neutral-200 mr-6 animate-pulse space-y-1";
             typingPlaceholder.innerHTML = `
@@ -1443,7 +1654,6 @@
             const systemPrompt = `Du bist ein ortskundiger Reiseführer für '${trip.destination}'. Nutze deine Fähigkeiten, um dem Nutzer nützliche, inspirierende, authentische und topaktuelle Tipps zu Geheimtipps, sehenswerten Zielen oder empfehlenswerten Restaurants zu geben. Strukturiere deine Antwort übersichtlich mit Titeln und Aufzählungspunkten (und passenden Icons). Antworte stets auf Deutsch.`;
             
             try {
-                // Grounding search enabled
                 const response = await runGeminiRequest({
                     contents: [{ parts: [{ text: userQuery }] }],
                     systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -1618,7 +1828,7 @@
         }
 
         // SAVING MEMORIES
-        window.saveTextMemory = function() {
+        window.saveTextMemory = async function() {
             const content = document.getElementById('text-memory-content').value.trim();
             if (!content) {
                 showToast("Bitte schreibe zuerst eine Anekdote auf!", "error");
@@ -1636,14 +1846,25 @@
             };
 
             trip.memories.push(newMemory);
-            saveTripsToLocalStorage();
-            
-            showToast("Anekdote hinzugefügt!", "success");
-            closeActiveModal();
-            renderTripMemoriesGrid();
+
+            if (activeUser.uid === 'local_guest') {
+                saveTripsToLocalStorage();
+                showToast("Anekdote hinzugefügt!", "success");
+                closeActiveModal();
+                renderTripMemoriesGrid();
+            } else {
+                try {
+                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                    await updateDoc(tripDocRef, { memories: trip.memories });
+                    showToast("Anekdote hochgeladen! ☁️", "success");
+                    closeActiveModal();
+                } catch(e) {
+                    showToast("Fehler beim Cloud-Speichern.", "error");
+                }
+            }
         }
 
-        window.savePhotoMemory = function() {
+        window.savePhotoMemory = async function() {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
 
@@ -1678,16 +1899,31 @@
             };
 
             trip.memories.push(newMemory);
-            saveTripsToLocalStorage();
 
-            uploadedImageBase64 = null;
-            generatedAIBase64 = null;
-            document.getElementById('upload-preview-img').classList.add('hidden');
-            document.getElementById('upload-placeholder-content').classList.remove('hidden');
-            
-            showToast("Erinnerungsbild gespeichert! 📸", "success");
-            closeActiveModal();
-            renderTripMemoriesGrid();
+            const clearPhotoModalInputs = () => {
+                uploadedImageBase64 = null;
+                generatedAIBase64 = null;
+                document.getElementById('upload-preview-img').classList.add('hidden');
+                document.getElementById('upload-placeholder-content').classList.remove('hidden');
+            };
+
+            if (activeUser.uid === 'local_guest') {
+                saveTripsToLocalStorage();
+                clearPhotoModalInputs();
+                showToast("Erinnerungsbild gespeichert! 📸", "success");
+                closeActiveModal();
+                renderTripMemoriesGrid();
+            } else {
+                try {
+                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                    await updateDoc(tripDocRef, { memories: trip.memories });
+                    clearPhotoModalInputs();
+                    showToast("Erinnerungsbild hochgeladen! ☁️", "success");
+                    closeActiveModal();
+                } catch(e) {
+                    showToast("Fehler beim Upload.", "error");
+                }
+            }
         }
 
         window.shareTripInvite = function() {
@@ -1695,13 +1931,7 @@
             if (!trip) return;
 
             const url = window.location.origin + window.location.pathname + `#inviteTrip=${trip.id}`;
-            const el = document.createElement('textarea');
-            el.value = url;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-
+            copyToClipboard(url);
             showToast("Kollaborations-Link kopiert!", "success");
         }
 
@@ -1713,7 +1943,7 @@
                     trip.memories.forEach(mem => {
                         flashbackSlides.push({
                             memory: mem,
-                            tripTitle: trip.destination,
+                            tripTitle: trip.name || trip.destination,
                             tripPurpose: trip.purpose
                         });
                     });
@@ -1910,6 +2140,28 @@
                 return `${parts[2]}.${parts[1]}.${parts[0]}`;
             }
             return dateStr;
+        }
+
+        // Universal Robust Clipboard copy helper supporting inside iframes
+        window.copyToClipboard = function(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            el.setAttribute('readonly', '');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            el.select();
+            el.setSelectionRange(0, 99999); // Mobile
+            document.execCommand('copy');
+            document.body.removeChild(el);
+        }
+
+        window.copyUnauthorizedDomain = function() {
+            const input = document.getElementById('unauthorized-domain-val');
+            if (input) {
+                copyToClipboard(input.value);
+                showToast("Domain erfolgreich kopiert! 🎉", "success");
+            }
         }
 
         window.showToast = function(message, type = 'info') {

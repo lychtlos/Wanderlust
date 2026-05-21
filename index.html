@@ -111,15 +111,23 @@
             <main id="view-dashboard" class="absolute inset-0 pb-24 pt-4 px-4 space-y-5 overflow-y-auto transition-all duration-300">
                 <!-- Trip Summary Stats Widget -->
                 <div class="bg-forest-900/20 border border-bronze-500/15 rounded-3xl p-4 flex items-center justify-between space-x-4">
-                    <div class="space-y-1">
-                        <span class="text-[10px] font-bold text-bronze-400 uppercase tracking-wider font-display">Gesamtdistanz</span>
-                        <div class="flex items-baseline space-x-1">
-                            <h2 id="stats-total-distance" class="font-display font-bold text-3xl text-neutral-100">0</h2>
-                            <span class="text-xs text-neutral-400">km</span>
+                    <div class="flex-1 grid grid-cols-2 gap-4 divide-x divide-bronze-500/10">
+                        <div class="space-y-1">
+                            <span class="text-[10px] font-bold text-bronze-400 uppercase tracking-wider font-display">Gesamtdistanz</span>
+                            <div class="flex items-baseline space-x-1">
+                                <h2 id="stats-total-distance" class="font-display font-bold text-2xl text-neutral-100">0</h2>
+                                <span class="text-xs text-neutral-400">km</span>
+                            </div>
                         </div>
-                        <p class="text-[9px] text-neutral-400 leading-none">basierend auf echten Routen-Berechnungen</p>
+                        <div class="space-y-1 pl-4">
+                            <span class="text-[10px] font-bold text-bronze-400 uppercase tracking-wider font-display">Trips Gesamt</span>
+                            <div class="flex items-baseline space-x-1">
+                                <h2 id="stats-total-trips" class="font-display font-bold text-2xl text-neutral-100">0</h2>
+                                <span class="text-xs text-neutral-400">Reisen</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="w-12 h-12 rounded-2xl bg-bronze-500/10 border border-bronze-500/20 flex items-center justify-center text-bronze-500">
+                    <div class="w-12 h-12 rounded-2xl bg-bronze-500/10 border border-bronze-500/20 flex items-center justify-center text-bronze-500 shrink-0">
                         <i class="fa-solid fa-route text-lg"></i>
                     </div>
                 </div>
@@ -136,10 +144,19 @@
                     <button onclick="toggleProfileCenter()" class="px-3 py-1.5 bg-bronze-600 hover:bg-bronze-500 text-forest-950 text-[10px] font-bold font-display uppercase tracking-wider rounded-lg transition whitespace-nowrap">Anmelden</button>
                 </div>
 
-                <!-- Past Trips Title -->
-                <div class="flex items-center justify-between pt-1">
+                <!-- Past Trips Title & Dropdown Filter -->
+                <div class="flex items-center justify-between pt-1 gap-2">
                     <h3 class="font-display font-bold text-xs text-neutral-300 uppercase tracking-wider">Deine Abenteuer</h3>
-                    <span id="trips-count-badge" class="px-2.5 py-0.5 rounded-full bg-forest-900/40 text-bronze-400 text-[10px] font-bold border border-forest-900/30">0 Trips</span>
+                    <div class="flex items-center space-x-2">
+                        <select id="trip-filter-select" class="bg-forest-900/40 border border-forest-900/60 rounded-xl px-2.5 py-1 text-[10px] font-bold text-bronze-400 font-display outline-none cursor-pointer focus:border-bronze-500/50">
+                            <option value="All" class="bg-forest-950 text-neutral-300">Alle Trips</option>
+                            <option value="Urlaub" class="bg-forest-950 text-neutral-300">Urlaub</option>
+                            <option value="Ausflug" class="bg-forest-950 text-neutral-300">Ausflug</option>
+                            <option value="Konzert" class="bg-forest-950 text-neutral-300">Konzert</option>
+                            <option value="Sonstiges" class="bg-forest-950 text-neutral-300">Sonstiges</option>
+                        </select>
+                        <span id="trips-count-badge" class="px-2.5 py-0.5 rounded-full bg-forest-900/40 text-bronze-400 text-[10px] font-bold border border-forest-900/30">0 Trips</span>
+                    </div>
                 </div>
 
                 <!-- Empty State Dashboard -->
@@ -289,7 +306,7 @@
             </div>
 
             <!-- Trip Form -->
-            <form id="form-new-trip" class="space-y-4" onsubmit="saveNewTrip(event)">
+            <form id="form-new-trip" class="space-y-4">
                 <!-- Trip Name Field -->
                 <div>
                     <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Name / Bezeichnung des Trips</label>
@@ -431,7 +448,7 @@
             </p>
             <div class="flex space-x-3 pt-2">
                 <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
-                <button onclick="executeDeleteTrip()" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 transition font-display uppercase tracking-wider">Löschen</button>
+                <button id="btn-execute-delete" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 transition font-display uppercase tracking-wider">Löschen</button>
             </div>
         </div>
 
@@ -840,6 +857,29 @@
                 document.getElementById('dest-autocomplete-dropdown').classList.add('hidden');
                 recalculatePreviewDistance();
             });
+
+            // Modern, dynamic event listeners replacing inline HTML bindings for safe execution in Canvas
+            const formNewTrip = document.getElementById('form-new-trip');
+            if (formNewTrip) {
+                formNewTrip.addEventListener('submit', (e) => {
+                    saveNewTrip(e);
+                });
+            }
+
+            const btnExecuteDelete = document.getElementById('btn-execute-delete');
+            if (btnExecuteDelete) {
+                btnExecuteDelete.addEventListener('click', () => {
+                    executeDeleteTrip();
+                });
+            }
+
+            // Bind Event-Listener for trip category filtering
+            const filterSelect = document.getElementById('trip-filter-select');
+            if (filterSelect) {
+                filterSelect.addEventListener('change', () => {
+                    renderDashboardTrips();
+                });
+            }
         });
 
         // Initialize and handle real-time sync subscription switching
@@ -902,7 +942,7 @@
                         fetched.push({ id: doc.id, ...data });
                     }
                 });
-                // Memory Sort
+                // Base memory sort
                 fetched.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                 tripsList = fetched;
                 
@@ -1325,6 +1365,7 @@
                     showToast("Trip erfolgreich aktualisiert! ✍️", "success");
                     closeActiveModal();
                     showTripDetailView(editingTripId);
+                    editingTripId = null;
                 } else {
                     const newTrip = {
                         id: 'trip_' + Date.now(),
@@ -1376,7 +1417,10 @@
                     await setDoc(tripDocRef, payload, { merge: true });
                     showToast(editingTripId ? "Trip erfolgreich aktualisiert! ✍️" : "Trip erfolgreich in die Cloud übertragen! ☁️", "success");
                     closeActiveModal();
-                    if (editingTripId) showTripDetailView(id);
+                    if (editingTripId) {
+                        showTripDetailView(id);
+                        editingTripId = null;
+                    }
                 } catch(e) {
                     console.error("Firestore sync write failed:", e);
                     showToast("Fehler beim Cloud-Speichern.", "error");
@@ -1409,8 +1453,18 @@
             const statsDistance = document.getElementById('stats-total-distance');
             if (statsDistance) statsDistance.innerText = totalDist.toLocaleString('de-DE');
 
+            // Set total trips count in top widget
+            const statsTripsCount = document.getElementById('stats-total-trips');
+            if (statsTripsCount) statsTripsCount.innerText = tripsList.length;
+
+            // Compute and set filtered badge counter safely
             const counterBadge = document.getElementById('trips-count-badge');
-            if (counterBadge) counterBadge.innerText = `${tripsList.length} ${tripsList.length === 1 ? 'Trip' : 'Trips'}`;
+            if (counterBadge) {
+                const filterSelect = document.getElementById('trip-filter-select');
+                const selectedFilter = filterSelect ? filterSelect.value : 'All';
+                const count = selectedFilter === 'All' ? tripsList.length : tripsList.filter(t => t.purpose === selectedFilter).length;
+                counterBadge.innerText = `${count} ${count === 1 ? 'Trip' : 'Trips'}`;
+            }
         }
 
         // RENDER TRIPS LIST
@@ -1421,14 +1475,35 @@
             if (!listContainer) return;
             listContainer.innerHTML = '';
 
-            if (tripsList.length === 0) {
+            // ALWAYS Sort trips chronologically descending (latest date first)
+            tripsList.sort((a, b) => {
+                const dateA = a.dateStart || '';
+                const dateB = b.dateStart || '';
+                return dateB.localeCompare(dateA);
+            });
+
+            // Filtering based on Dropdown
+            const filterSelect = document.getElementById('trip-filter-select');
+            const selectedFilter = filterSelect ? filterSelect.value : 'All';
+
+            const filteredTrips = selectedFilter === 'All'
+                ? tripsList
+                : tripsList.filter(t => t.purpose === selectedFilter);
+
+            // Dynamically update counter badge
+            const counterBadge = document.getElementById('trips-count-badge');
+            if (counterBadge) {
+                counterBadge.innerText = `${filteredTrips.length} ${filteredTrips.length === 1 ? 'Trip' : 'Trips'}`;
+            }
+
+            if (filteredTrips.length === 0) {
                 if (emptyContainer) emptyContainer.classList.remove('hidden');
                 return;
             }
 
             if (emptyContainer) emptyContainer.classList.add('hidden');
 
-            tripsList.forEach(trip => {
+            filteredTrips.forEach(trip => {
                 const pIcon = purposeIcons[trip.purpose] || purposeIcons['Sonstiges'];
                 const tIcon = transportIcons[trip.transport] || transportIcons['Auto'];
 
@@ -2133,6 +2208,7 @@
             );
         }
 
+        // Format Date to dd.mm.yyyy format
         function formatGermanDate(dateStr) {
             if (!dateStr) return '';
             const parts = dateStr.split('-');

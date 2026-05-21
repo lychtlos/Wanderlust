@@ -165,16 +165,27 @@
             <!-- Trip Details View -->
             <main id="view-trip-details" class="absolute inset-0 pb-24 pt-4 px-4 space-y-4 overflow-y-auto hidden transition-all duration-300">
                 
-                <!-- Back Button & Share Area -->
-                <div class="flex items-center justify-between">
+                <!-- Back Button & Actions Area -->
+                <div class="flex items-center justify-between gap-1.5 flex-wrap">
                     <button onclick="showDashboardView()" class="px-3 py-1.5 rounded-xl bg-forest-900/40 hover:bg-forest-900/60 border border-forest-900/30 text-bronze-500 hover:text-bronze-400 text-xs font-semibold flex items-center space-x-1.5 transition">
                         <i class="fa-solid fa-arrow-left"></i>
                         <span>Zurück</span>
                     </button>
-                    <button onclick="shareTripInvite()" class="px-3 py-1.5 rounded-xl bg-forest-900/40 hover:bg-forest-900/60 border border-bronze-500/20 text-bronze-500 text-[10px] font-bold font-display tracking-wider uppercase flex items-center space-x-1.5 hover:border-bronze-500 transition">
-                        <i class="fa-solid fa-share-nodes"></i>
-                        <span>Trip Teilen / Einladen</span>
-                    </button>
+                    
+                    <div class="flex items-center space-x-1.5">
+                        <button onclick="openEditTripModal()" class="px-2.5 py-1.5 rounded-xl bg-forest-900/40 hover:bg-forest-900/60 border border-forest-900/30 text-bronze-500 text-[10px] font-bold font-display uppercase tracking-wider flex items-center space-x-1 transition">
+                            <i class="fa-solid fa-pen"></i>
+                            <span>Bearbeiten</span>
+                        </button>
+                        <button onclick="confirmDeleteTrip()" class="px-2.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/30 text-rose-400 text-[10px] font-bold font-display uppercase tracking-wider flex items-center space-x-1 transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                            <span>Löschen</span>
+                        </button>
+                        <button onclick="shareTripInvite()" class="px-2.5 py-1.5 rounded-xl bg-forest-900/40 hover:bg-forest-900/60 border border-bronze-500/20 text-bronze-500 text-[10px] font-bold font-display uppercase tracking-wider flex items-center space-x-1 hover:border-bronze-500 transition">
+                            <i class="fa-solid fa-share-nodes"></i>
+                            <span>Teilen</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Header Card -->
@@ -264,19 +275,19 @@
     <!-- Modal Backdrop -->
     <div id="modal-backdrop" class="fixed inset-0 bg-forest-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         
-        <!-- Modal: Add New Trip -->
+        <!-- Modal: Add / Edit Trip -->
         <div id="modal-new-trip" class="hidden bg-forest-900/90 border border-bronze-500/20 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-forest-900 pb-3">
                 <h3 class="font-display font-bold text-base text-neutral-100 flex items-center space-x-2">
                     <i class="fa-solid fa-earth-europe text-bronze-500"></i>
-                    <span>Neues Abenteuer planen</span>
+                    <span id="modal-trip-title">Neues Abenteuer planen</span>
                 </h3>
                 <button onclick="closeActiveModal()" class="text-neutral-400 hover:text-neutral-200 transition">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
 
-            <!-- New Trip Form -->
+            <!-- Trip Form -->
             <form id="form-new-trip" class="space-y-4" onsubmit="saveNewTrip(event)">
                 <div class="grid grid-cols-2 gap-3">
                     <!-- Origin / Starting location -->
@@ -397,9 +408,24 @@
 
                 <div class="flex space-x-3 pt-2">
                     <button type="button" onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
-                    <button type="submit" class="flex-1 py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold shadow-lg shadow-bronze-600/20 hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">Trip erstellen</button>
+                    <button type="submit" id="btn-trip-submit-text" class="flex-1 py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold shadow-lg shadow-bronze-600/20 hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">Trip erstellen</button>
                 </div>
             </form>
+        </div>
+
+        <!-- Modal: Confirm Delete Trip -->
+        <div id="modal-confirm-delete" class="hidden bg-forest-900 border border-rose-500/20 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative">
+            <div class="flex items-center space-x-3 text-rose-500 pb-2 border-b border-forest-900">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                <h3 class="font-display font-bold text-base text-neutral-100">Abenteuer löschen?</h3>
+            </div>
+            <p class="text-xs text-neutral-300 leading-relaxed">
+                Möchtest du das Abenteuer nach <strong id="delete-trip-dest-name"></strong> und alle Pinnwand-Einträge wirklich unwiderruflich löschen?
+            </p>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
+                <button onclick="executeDeleteTrip()" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 transition font-display uppercase tracking-wider">Löschen</button>
+            </div>
         </div>
 
         <!-- Modal: Add Text Memory -->
@@ -693,6 +719,7 @@
         let tripsList = [];
         let activeTripId = null;
         let activeModalId = null;
+        let editingTripId = null;
         
         let tempStartCoords = null;
         let tempDestCoords = null;
@@ -926,11 +953,58 @@
         }
 
         window.openNewTripModal = function() {
+            editingTripId = null;
             tempStartCoords = null;
             tempDestCoords = null;
+            document.getElementById('modal-trip-title').innerText = "Neues Abenteuer planen";
+            document.getElementById('btn-trip-submit-text').innerText = "Trip erstellen";
             document.getElementById('trip-calc-distance-preview').classList.add('hidden');
             document.getElementById('form-new-trip').reset();
             showModal('modal-new-trip');
+        }
+
+        window.openEditTripModal = function() {
+            const trip = tripsList.find(t => t.id === activeTripId);
+            if (!trip) return;
+
+            editingTripId = trip.id;
+            tempStartCoords = trip.startCoords || null;
+            tempDestCoords = trip.destCoords || null;
+
+            document.getElementById('trip-start-input').value = trip.origin;
+            document.getElementById('trip-destination-input').value = trip.destination;
+            document.getElementById('trip-date-start').value = trip.dateStart;
+            document.getElementById('trip-date-end').value = trip.dateEnd;
+
+            // Set purpose radio
+            const purposeRadio = document.querySelector(`input[name="trip-purpose"][value="${trip.purpose}"]`);
+            if (purposeRadio) purposeRadio.checked = true;
+
+            // Set transport radio
+            const transportRadio = document.querySelector(`input[name="trip-transport"][value="${trip.transport}"]`);
+            if (transportRadio) transportRadio.checked = true;
+
+            document.getElementById('modal-trip-title').innerText = "Abenteuer bearbeiten";
+            document.getElementById('btn-trip-submit-text').innerText = "Änderungen speichern";
+
+            recalculatePreviewDistance();
+            showModal('modal-new-trip');
+        }
+
+        window.confirmDeleteTrip = function() {
+            const trip = tripsList.find(t => t.id === activeTripId);
+            if (!trip) return;
+            document.getElementById('delete-trip-dest-name').innerText = trip.destination;
+            showModal('modal-confirm-delete');
+        }
+
+        window.executeDeleteTrip = function() {
+            if (!activeTripId) return;
+            tripsList = tripsList.filter(t => t.id !== activeTripId);
+            saveTripsToLocalStorage();
+            closeActiveModal();
+            showToast("Abenteuer gelöscht.", "success");
+            showDashboardView();
         }
 
         window.toggleProfileCenter = function() {
@@ -1065,23 +1139,44 @@
                 distance = Math.floor(Math.random() * 400) + 100;
             }
 
-            const newTrip = {
-                id: 'trip_' + Date.now(),
-                origin: origin,
-                destination: destination,
-                dateStart: dateStart,
-                dateEnd: dateEnd,
-                purpose: purpose,
-                transport: transport,
-                distance: distance,
-                memories: []
-            };
+            if (editingTripId) {
+                const trip = tripsList.find(t => t.id === editingTripId);
+                if (trip) {
+                    trip.origin = origin;
+                    trip.destination = destination;
+                    trip.dateStart = dateStart;
+                    trip.dateEnd = dateEnd;
+                    trip.purpose = purpose;
+                    trip.transport = transport;
+                    trip.distance = distance;
+                    trip.startCoords = tempStartCoords;
+                    trip.destCoords = tempDestCoords;
+                }
+                saveTripsToLocalStorage();
+                showToast(`Trip nach ${destination} erfolgreich aktualisiert! ✍️`, "success");
+                closeActiveModal();
+                showTripDetailView(editingTripId);
+            } else {
+                const newTrip = {
+                    id: 'trip_' + Date.now(),
+                    origin: origin,
+                    destination: destination,
+                    dateStart: dateStart,
+                    dateEnd: dateEnd,
+                    purpose: purpose,
+                    transport: transport,
+                    distance: distance,
+                    startCoords: tempStartCoords,
+                    destCoords: tempDestCoords,
+                    memories: []
+                };
 
-            tripsList.unshift(newTrip);
-            saveTripsToLocalStorage();
+                tripsList.unshift(newTrip);
+                saveTripsToLocalStorage();
+                showToast(`Trip nach ${destination} erfolgreich geplant! 🏕️`, "success");
+                closeActiveModal();
+            }
             
-            showToast(`Trip nach ${destination} erfolgreich geplant! 🏕️`, "success");
-            closeActiveModal();
             renderDashboardTrips();
             updateUIState();
         }

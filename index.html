@@ -513,7 +513,7 @@
             <div id="photo-tab-ai" class="space-y-3 hidden">
                 <div class="space-y-1">
                     <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block">Prompt (Beschreibung der Bildidee)</label>
-                    <textarea id="ai-photo-prompt" rows="2" placeholder="z.B. Ein malerisches Boot am Gardasee bei Sonnenuntergang, Aquarell-Stil" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl p-3 text-xs text-neutral-200 outline-none transition placeholder-neutral-600 resize-none"></textarea>
+                    <textarea id="ai-photo-prompt" rows="2" placeholder="z. B. Ein malerisches Boot am Gardasee bei Sonnenuntergang, Aquarell-Stil" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl p-3 text-xs text-neutral-200 outline-none transition placeholder-neutral-600 resize-none"></textarea>
                 </div>
                 <!-- Loading & Result Panel -->
                 <div id="ai-photo-result-container" class="relative hidden bg-forest-950 rounded-2xl h-40 border border-forest-900 overflow-hidden flex items-center justify-center">
@@ -605,7 +605,7 @@
             <div class="bg-forest-950/50 border border-forest-900 rounded-2xl p-4 space-y-1 text-left">
                 <span class="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Deine Entdecker-ID (UID)</span>
                 <p id="profile-user-id" class="text-xs font-mono text-bronze-400 select-all break-all cursor-pointer" title="Klicken zum Kopieren" onclick="copyToClipboard(this.innerText); showToast('ID kopiert!', 'success')"></p>
-                <span class="text-[8px] text-neutral-500 block leading-none">Tippe auf die ID, um sie zu kopieren und für Teameinladungen zu teilen.</span>
+                <span class="text-[8px] text-neutral-500 block leading-none">Tipe auf die ID, um sie zu kopieren und für Teameinladungen zu teilen.</span>
             </div>
 
             <!-- Local Only Indicator -->
@@ -1074,6 +1074,12 @@
         window.performSignOut = async function() {
             if (!firebaseAvailable || !auth) return;
             try {
+                // Cache loeschen, um Datenkonflikte beim Benutzerwechsel zu verhindern
+                localStorage.removeItem('wanderlust_trips_cache');
+                tripsList = [];
+                renderDashboardTrips();
+                updateUIState();
+                
                 await signOut(auth);
                 showToast("Erfolgreich abgemeldet.", "info");
                 window.closeActiveModal();
@@ -1889,26 +1895,46 @@
         async function initApp() {
             if (firebaseAvailable && auth) {
                 // Rule 3 Protocol - Auto Authenticate Session on startup first
-                const initAuthSession = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                            console.log("Wanderlust: Handshake mit Custom-Token erfolgreich.");
-                            return;
-                        } catch (e) {
-                            console.warn("Wanderlust: Handshake mit Custom-Token fehlgeschlagen, versuche anonyme Anmeldung:", e);
-                        }
-                    }
+                const initAuthSession = () => {
+                    return new Promise((resolve) => {
+                        let resolved = false;
+                        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                            unsubscribe();
+                            if (!resolved) {
+                                resolved = true;
+                                if (user) {
+                                    console.log("Wanderlust: Bestehende Sitzung erfolgreich wiederhergestellt.");
+                                    resolve(user);
+                                } else {
+                                    // No persisted session, proceed with initial tokens or anonymous fallback
+                                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                        try {
+                                            const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                                            console.log("Wanderlust: Handshake mit Custom-Token erfolgreich.");
+                                            resolve(cred.user);
+                                            return;
+                                        } catch (e) {
+                                            console.warn("Wanderlust: Handshake mit Custom-Token fehlgeschlagen:", e);
+                                        }
+                                    }
 
-                    try {
-                        const isRedirecting = sessionStorage.getItem('wl_auth_in_progress') === 'true';
-                        if (!auth.currentUser && !isRedirecting) {
-                            await signInAnonymously(auth);
-                            console.log("Wanderlust: Anonyme Anmeldung erfolgreich.");
-                        }
-                    } catch (e) {
-                        console.warn("Wanderlust: Anonyme Anmeldung ist in Firebase deaktiviert oder fehlgeschlagen. Fahre im lokalen Gastmodus fort.", e);
-                    }
+                                    try {
+                                        const isRedirecting = sessionStorage.getItem('wl_auth_in_progress') === 'true';
+                                        if (!isRedirecting) {
+                                            const cred = await signInAnonymously(auth);
+                                            console.log("Wanderlust: Anonyme Anmeldung erfolgreich.");
+                                            resolve(cred.user);
+                                        } else {
+                                            resolve(null);
+                                        }
+                                    } catch (e) {
+                                        console.warn("Wanderlust: Anonyme Anmeldung fehlgeschlagen. Lokaler Modus aktiv.", e);
+                                        resolve(null);
+                                    }
+                                }
+                            }
+                        });
+                    });
                 };
                 
                 await initAuthSession();
@@ -1947,7 +1973,7 @@
                         // Rule 1 & Kollaboration: Handle incoming Invite flow immediately
                         await handleIncomingInviteLink(user.uid);
 
-                        migrateLocalDataToCloud(user.uid);
+                        await migrateLocalDataToCloud(user.uid);
                         setupFirestoreSubscription();
                     } else {
                         setGuestUserState();
@@ -2027,14 +2053,16 @@
 
             const tripsColl = collection(db, 'artifacts', appId, 'public', 'data', 'trips');
             
+            const currentUid = auth.currentUser.uid;
+
             // Rule 2 Protocol: Simple read query, handle robust filtering / sorting in JS memory
             firestoreUnsubscribe = onSnapshot(tripsColl, (snapshot) => {
                 const fetched = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const members = data.members || [data.ownerId];
-                    // Verify if user is owner or invited member
-                    if (data.ownerId === activeUser.uid || members.includes(activeUser.uid)) {
+                    // Filter in memory using current UID securely
+                    if (data.ownerId === currentUid || members.includes(currentUid)) {
                         fetched.push({ id: doc.id, ...data });
                     }
                 });
@@ -2069,8 +2097,8 @@
                 const localTrips = JSON.parse(cache);
                 if (localTrips && localTrips.length > 0) {
                     for (const trip of localTrips) {
-                        // Skip temporary migration if trip is already cloud-saved
-                        if (trip.id && !trip.id.startsWith('trip_')) continue;
+                        // Skip if the trip was already synced to a cloud account (prevents duplicate migration and overwrite)
+                        if (trip.ownerId && trip.ownerId !== 'local_guest') continue;
                         
                         const tripId = trip.id || 'trip_' + Date.now() + Math.floor(Math.random() * 1000);
                         const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', tripId);

@@ -948,15 +948,15 @@
                 showToast("Abenteuer gelöscht.", "success");
                 window.showDashboardView();
             } else {
-                try {
-                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
-                    await deleteDoc(tripDocRef);
-                    window.closeActiveModal();
-                    showToast("Abenteuer permanent gelöscht.", "success");
-                    window.showDashboardView();
-                } catch(e) {
-                    showToast("Fehler beim Löschen.", "error");
-                }
+                const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                // Background execution to prevent hanging promises on restricted environments
+                deleteDoc(tripDocRef).catch(e => {
+                    console.error("Cloud delete failed:", e);
+                    showToast("Fehler bei Cloud-Löschung.", "error");
+                });
+                window.closeActiveModal();
+                showToast("Abenteuer permanent gelöscht.", "success");
+                window.showDashboardView();
             }
         };
 
@@ -1199,19 +1199,19 @@
                     timestamp: existingTrip ? (existingTrip.timestamp || Date.now()) : Date.now()
                 };
 
-                try {
-                    await setDoc(tripDocRef, payload, { merge: true });
-                    showToast(editingTripId ? "Trip erfolgreich aktualisiert! ✍️" : "Trip erfolgreich gespeichert! ☁️", "success");
-                    window.closeActiveModal();
-                    if (editingTripId) {
-                        window.showTripDetailView(id);
-                        editingTripId = null;
-                    } else {
-                        window.showDashboardView();
-                    }
-                } catch(e) {
+                // Optimistic background save prevents connection hangs on remote hosting
+                setDoc(tripDocRef, payload, { merge: true }).catch(e => {
                     console.error("Firestore sync write failed:", e);
                     showToast("Fehler beim Cloud-Speichern.", "error");
+                });
+
+                showToast(editingTripId ? "Trip erfolgreich aktualisiert! ✍️" : "Trip erfolgreich gespeichert! ☁️", "success");
+                window.closeActiveModal();
+                if (editingTripId) {
+                    window.showTripDetailView(id);
+                    editingTripId = null;
+                } else {
+                    window.showDashboardView();
                 }
             }
         };
@@ -1289,13 +1289,14 @@
                 showToast("Erinnerung gelöscht.", "info");
                 renderTripMemoriesGrid();
             } else {
-                try {
-                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
-                    await updateDoc(tripDocRef, { memories: trip.memories });
-                    showToast("Erinnerung gelöscht.", "info");
-                } catch(e) {
-                    showToast("Fehler beim Cloud-Löschen.", "error");
-                }
+                const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                // Fire and forget with local fallback
+                updateDoc(tripDocRef, { memories: trip.memories }).catch(e => {
+                    console.error("Cloud memory deletion failed:", e);
+                    showToast("Fehler bei Cloud-Aktualisierung.", "error");
+                });
+                showToast("Erinnerung gelöscht.", "info");
+                renderTripMemoriesGrid();
             }
         };
 
@@ -1579,14 +1580,15 @@
                 window.closeActiveModal();
                 renderTripMemoriesGrid();
             } else {
-                try {
-                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
-                    await updateDoc(tripDocRef, { memories: trip.memories });
-                    showToast("Anekdote gespeichert! ☁️", "success");
-                    window.closeActiveModal();
-                } catch(e) {
-                    showToast("Fehler beim Cloud-Speichern.", "error");
-                }
+                const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                // Non-blocking write for instant layout reaction
+                updateDoc(tripDocRef, { memories: trip.memories }).catch(e => {
+                    console.error("Cloud save failed:", e);
+                    showToast("Fehler bei Cloud-Synchronisierung.", "error");
+                });
+                showToast("Anekdote gespeichert! ☁️", "success");
+                window.closeActiveModal();
+                renderTripMemoriesGrid();
             }
         };
 
@@ -1643,15 +1645,16 @@
                 window.closeActiveModal();
                 renderTripMemoriesGrid();
             } else {
-                try {
-                    const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
-                    await updateDoc(tripDocRef, { memories: trip.memories });
-                    clearPhotoModalInputs();
-                    showToast("Erinnerungsbild gespeichert! ☁️", "success");
-                    window.closeActiveModal();
-                } catch(e) {
-                    showToast("Fehler beim Upload.", "error");
-                }
+                const tripDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId);
+                // Non-blocking write
+                updateDoc(tripDocRef, { memories: trip.memories }).catch(e => {
+                    console.error("Cloud save failed:", e);
+                    showToast("Fehler bei Cloud-Synchronisierung.", "error");
+                });
+                clearPhotoModalInputs();
+                showToast("Erinnerungsbild gespeichert! ☁️", "success");
+                window.closeActiveModal();
+                renderTripMemoriesGrid();
             }
         };
 

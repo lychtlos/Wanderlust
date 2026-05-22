@@ -815,8 +815,6 @@
         };
 
         // EXTREMELY CRITICAL FOR GITHUB PAGES: Safe Fallback Init Block
-        // We define all global functions on the window object FIRST, so that even if Firebase 
-        // fails completely (e.g. blocked by Adblock or Brave Shields), the rest of the application remains 100% responsive.
         let app = null;
         let auth = null;
         let db = null;
@@ -1862,9 +1860,8 @@
             }, 4000);
         };
 
-
-        // On document ready
-        document.addEventListener('DOMContentLoaded', () => {
+        // App start logic handles both ready and parsing states smoothly
+        function startApp() {
             initApp();
             
             // Registering Photon geocoding search autocompletes
@@ -1903,7 +1900,14 @@
                     renderDashboardTrips();
                 });
             }
-        });
+        }
+
+        // Fire safely immediately if DOM has already parsed
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startApp);
+        } else {
+            startApp();
+        }
 
         // Initialize and handle real-time sync subscription switching with mobile redirects support
         function initApp() {

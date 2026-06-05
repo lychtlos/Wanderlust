@@ -1339,14 +1339,16 @@
                         email: user.email || '',
                         photoURL: user.photoURL
                     };
-                    await handleIncomingInviteLink(user.uid);
+                    // FIX A: Subscription ZUERST aufbauen, damit onSnapshot bereits
+                    // läuft wenn handleIncomingInviteLink den members-Array aktualisiert.
+                    setupFirestoreSubscription();
 
                     if (!user.isAnonymous) {
-                        // Migrate any locally-only trips to this authenticated account
                         await migrateLocalDataToCloud(user.uid);
                     }
 
-                    setupFirestoreSubscription();
+                    // Invite NACH Subscription verarbeiten
+                    await handleIncomingInviteLink(user.uid);
                 } else {
                     // No session at all – sign in anonymously for a local-only experience
                     try {
@@ -1378,20 +1380,36 @@
             const inviteId = match[1];
             showToast("Trete Abenteuer-Gruppe bei...", "info");
             try {
-                const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', inviteId));
+                const tripRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', inviteId);
+                const snap = await getDoc(tripRef);
                 if (snap.exists()) {
                     const data = snap.data();
                     let members = data.members || [data.ownerId];
                     if (!members.includes(userId)) {
                         members.push(userId);
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', inviteId), { members });
+                        await updateDoc(tripRef, { members });
                     }
+
+                    // FIX B: Trip sofort lokal einfügen.
+                    // Firestore-Indexes sind eventual consistent – onSnapshot liefert
+                    // den neuen Eintrag u.U. erst nach einigen Sekunden. Durch direktes
+                    // Einfügen in tripsList ist der Trip für den Eingeladenen sofort sichtbar.
+                    const tripData = { id: inviteId, ...data, members };
+                    const existsLocally = tripsList.find(t => t.id === inviteId);
+                    if (!existsLocally) {
+                        tripsList.unshift(tripData);
+                        saveTripsToLocalStorage();
+                        renderDashboardTrips();
+                        updateUIState();
+                    }
+
                     showToast(`Erfolgreich beigetreten: ${data.name || data.destination}! 🌍`, "success");
                     setTimeout(() => window.showTripDetailView(inviteId), 500);
                 } else {
                     showToast("Einladung ungültig oder Trip wurde gelöscht.", "error");
                 }
             } catch (e) {
+                console.error("Invite join error:", e);
                 showToast("Beitreten fehlgeschlagen.", "error");
             }
         }

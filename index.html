@@ -747,6 +747,8 @@
                     showToast("Konto registriert! Willkommen. 🏕️", "success");
                 }
                 window.closeActiveModal();
+                // Nach Login: ausstehenden Invite verarbeiten (falls über Link gekommen)
+                if (auth.currentUser) await handleIncomingInviteLink(auth.currentUser.uid);
             } catch (err) {
                 showToast("Anmeldung fehlgeschlagen: " + translateAuthError(err.code), "error");
             }
@@ -765,6 +767,8 @@
                     showToast(`Willkommen, ${result.user.displayName || 'Entdecker'}! 🌍`, "success");
                     sessionStorage.removeItem('wl_auth_in_progress');
                     window.closeActiveModal();
+                    // Nach Google-Login: ausstehenden Invite verarbeiten
+                    if (result.user) await handleIncomingInviteLink(result.user.uid);
                 }
             } catch (err) {
                 if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
@@ -1326,6 +1330,17 @@
                 }
             }
 
+            // Invite-Hash sofort beim Laden in sessionStorage parken,
+            // bevor Firebase Auth den Hash potenziell wegräumt.
+            const rawHash = window.location.hash;
+            if (rawHash?.includes('inviteTrip=')) {
+                const m = rawHash.match(/inviteTrip=([^&]+)/);
+                if (m?.[1]) {
+                    sessionStorage.setItem('wl_pending_invite', m[1]);
+                    window.location.hash = '';
+                }
+            }
+
             // FIX 4: Persistent auth state listener – single source of truth
             onAuthStateChanged(auth, async (user) => {
                 // Tear down old subscription before doing anything else
@@ -1339,16 +1354,25 @@
                         email: user.email || '',
                         photoURL: user.photoURL
                     };
-                    // FIX A: Subscription ZUERST aufbauen, damit onSnapshot bereits
-                    // läuft wenn handleIncomingInviteLink den members-Array aktualisiert.
+
+                    // Subscription zuerst aufbauen
                     setupFirestoreSubscription();
 
                     if (!user.isAnonymous) {
                         await migrateLocalDataToCloud(user.uid);
+                        // Invite nur für eingeloggte User verarbeiten –
+                        // anonyme UIDs sind flüchtig und würden den Trip
+                        // nach einem Reload wieder verlieren.
+                        await handleIncomingInviteLink(user.uid);
+                    } else {
+                        // Gast-User: Invite-Hinweis anzeigen und zum Login auffordern
+                        const pendingInvite = sessionStorage.getItem('wl_pending_invite');
+                        if (pendingInvite) {
+                            showToast("Bitte melde dich an, um dem geteilten Trip beizutreten.", "info");
+                            // Profil-Modal öffnen damit der User sich einloggen kann
+                            setTimeout(() => window.toggleProfileCenter(), 800);
+                        }
                     }
-
-                    // Invite NACH Subscription verarbeiten
-                    await handleIncomingInviteLink(user.uid);
                 } else {
                     // No session at all – sign in anonymously for a local-only experience
                     try {
@@ -1372,12 +1396,11 @@
 
         async function handleIncomingInviteLink(userId) {
             if (!firebaseAvailable || !db || !auth.currentUser) return;
-            const hash = window.location.hash;
-            if (!hash?.includes('inviteTrip=')) return;
-            const match = hash.match(/inviteTrip=([^&]+)/);
-            if (!match?.[1]) return;
-            window.location.hash = '';
-            const inviteId = match[1];
+            // Lese aus sessionStorage – dort wurde der Hash beim Seitenaufruf geparkt
+            const inviteId = sessionStorage.getItem('wl_pending_invite');
+            if (!inviteId) return;
+            // Sofort löschen damit es nicht doppelt verarbeitet wird
+            sessionStorage.removeItem('wl_pending_invite');
             showToast("Trete Abenteuer-Gruppe bei...", "info");
             try {
                 const tripRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', inviteId);

@@ -1617,7 +1617,7 @@
             document.getElementById('detail-trip-transport').innerHTML = transportIcons[trip.transport] || transportIcons['Auto'];
             document.getElementById('detail-trip-purpose').innerHTML   = `${purposeIcons[trip.purpose] || purposeIcons['Sonstiges']} <span class="ml-1">${trip.purpose}</span>`;
             document.getElementById('detail-trip-title').innerText     = trip.name || trip.destination;
-            document.getElementById('detail-trip-start').innerText     = trip.origin || 'Heimatort';
+            document.getElementById('detail-trip-start').innerText     = `${trip.origin || 'Heimatort'} ➔ ${trip.destination || ''}`;
             document.getElementById('detail-trip-dates').innerText     = `${formatGermanDate(trip.dateStart)} – ${formatGermanDate(trip.dateEnd)}`;
             document.getElementById('detail-trip-distance').innerText  = `${(trip.distance || 0).toLocaleString('de-DE')} km (${trip.transport})`;
             renderTripMemoriesGrid();

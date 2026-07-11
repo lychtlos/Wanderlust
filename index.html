@@ -423,13 +423,13 @@
             <div class="bg-forest-950/50 border border-forest-900 rounded-2xl p-4 space-y-1 text-left">
                 <span class="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Deine Entdecker-ID (UID)</span>
                 <p id="profile-user-id" class="text-xs font-mono text-bronze-400 select-all break-all cursor-pointer" title="Klicken zum Kopieren" onclick="copyToClipboard(this.innerText); showToast('ID kopiert!', 'success')"></p>
-                <span class="text-[8px] text-neutral-500 block leading-none">Tippe auf die ID, um sie zu kopieren und für Teameinladungen zu teilen.</span>
+                <span class="text-[8px] text-neutral-500 block leading-none">Tipe auf die ID, um sie zu kopieren und für Teameinladungen zu teilen.</span>
             </div>
             <div id="profile-local-alert" class="bg-bronze-500/10 border border-bronze-500/20 rounded-2xl p-4 flex items-start space-x-3">
                 <i class="fa-solid fa-circle-exclamation text-bronze-500 mt-0.5"></i>
                 <div class="space-y-1">
                     <h5 class="text-xs font-bold font-display text-bronze-400">Anonymer Gast-Modus</h5>
-                    <p class="text-[10px] text-neutral-400 leading-normal">Erstelle ein kostenloses Konto, um deine Trips geräteübergreifend dauerhaft zu behalten. Deine bisherigen Trips werden dabei automatisch übernommen.</p>
+                    <p class="text-[10px] text-neutral-400 leading-normal">Erstelle ein kostenloses Konto, um deine Trips geräteübergreifend dauerhaft zu behalten.</p>
                 </div>
             </div>
             <div id="auth-box" class="space-y-4">
@@ -548,21 +548,15 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { 
-            getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
-            getRedirectResult, signOut, onAuthStateChanged, signInWithEmailAndPassword,
-            createUserWithEmailAndPassword, updateProfile, signInAnonymously,
-            // FIX A: Account-Linking-Imports. Anonyme Konten werden mit dem
-            // echten Konto VERKNÜPFT statt ersetzt – die UID bleibt erhalten
-            // und damit alle Trips und Mitgliedschaften.
-            linkWithPopup, linkWithRedirect, linkWithCredential,
-            signInWithCredential, EmailAuthProvider
+            getAuth, GoogleAuthProvider, signInWithPopup,
+            signOut, onAuthStateChanged, signInWithEmailAndPassword,
+            createUserWithEmailAndPassword, updateProfile, signInAnonymously, signInWithCustomToken
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import {
             getFirestore, collection, doc, setDoc, getDoc, onSnapshot,
-            updateDoc, deleteDoc, query, where,
-            // FIX B: arrayUnion/arrayRemove für atomaren, race-sicheren
-            // Self-Join beim Invite (passt exakt zur Security Rule).
-            arrayUnion, arrayRemove
+            updateDoc, deleteDoc,
+            // FIX 1: Import query and where for proper server-side filtering
+            query, where
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -677,12 +671,6 @@
         window.confirmDeleteTrip = function() {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
-            // FIX C: Nur der Owner darf löschen (Security Rule würde es ohnehin
-            // ablehnen – hier verhindern wir eine verwirrende Fehlermeldung).
-            if (trip.ownerId && activeUser && trip.ownerId !== activeUser.uid) {
-                showToast("Nur der Ersteller kann diesen Trip löschen.", "error");
-                return;
-            }
             document.getElementById('delete-trip-dest-name').innerText = trip.name || trip.destination;
             window.showModal('modal-confirm-delete');
         };
@@ -749,31 +737,17 @@
             const email    = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value;
             const isLogin  = document.getElementById('btn-auth-action')?.innerText.includes("Einloggen");
-            const current  = auth.currentUser;
             try {
                 if (isLogin) {
-                    // FIX A: Beim Login aus einer anonymen Session heraus wechselt
-                    // die UID – Mitgliedschaften der anonymen UID werden übertragen.
-                    const oldAnonUid = current?.isAnonymous ? current.uid : null;
-                    const res = await signInWithEmailAndPassword(auth, email, password);
-                    if (oldAnonUid) await migrateMemberships(oldAnonUid, res.user.uid);
+                    await signInWithEmailAndPassword(auth, email, password);
                     showToast("Erfolgreich eingeloggt! ✨", "success");
                 } else {
-                    if (current?.isAnonymous) {
-                        // FIX A: Anonymes Konto per Linking upgraden – UID bleibt
-                        // identisch, alle Trips und Invite-Mitgliedschaften bleiben.
-                        const cred = EmailAuthProvider.credential(email, password);
-                        const res  = await linkWithCredential(current, cred);
-                        await updateProfile(res.user, { displayName: email.split('@')[0] });
-                        syncActiveUserFromFirebase(res.user);
-                        showToast("Konto erstellt – deine Trips bleiben erhalten! 🏕️", "success");
-                    } else {
-                        const cred = await createUserWithEmailAndPassword(auth, email, password);
-                        await updateProfile(cred.user, { displayName: email.split('@')[0] });
-                        showToast("Konto registriert! Willkommen. 🏕️", "success");
-                    }
+                    const cred = await createUserWithEmailAndPassword(auth, email, password);
+                    await updateProfile(cred.user, { displayName: email.split('@')[0] });
+                    showToast("Konto registriert! Willkommen. 🏕️", "success");
                 }
                 window.closeActiveModal();
+                // Nach Login: ausstehenden Invite verarbeiten (falls über Link gekommen)
                 if (auth.currentUser) await handleIncomingInviteLink(auth.currentUser.uid);
             } catch (err) {
                 showToast("Anmeldung fehlgeschlagen: " + translateAuthError(err.code), "error");
@@ -783,94 +757,32 @@
         window.signInWithGoogle = async function() {
             if (!firebaseAvailable || !auth) { showToast("Google Auth nicht verfügbar.", "error"); return; }
             const provider = new GoogleAuthProvider();
-            const current  = auth.currentUser;
-            const isAnon   = !!current?.isAnonymous;
-            const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            sessionStorage.setItem('wl_auth_in_progress', 'true');
-            // Anonyme UID merken, falls das Linking fehlschlägt (Konto existiert
-            // bereits) und wir Mitgliedschaften migrieren müssen.
-            if (isAnon) sessionStorage.setItem('wl_anon_uid', current.uid);
+            // FIX: Immer signInWithPopup verwenden – auch mobil.
+            // signInWithRedirect ist seit Mitte 2024 in Chrome 115+, Safari 16.1+
+            // und Firefox 109+ defekt (Third-Party-Cookie-Blocking), wenn die App
+            // nicht auf *.firebaseapp.com gehostet ist. Popup ist davon nicht betroffen.
             try {
-                if (isMobile) {
-                    // FIX A: Anonyme User werden VERKNÜPFT, nicht neu eingeloggt.
-                    if (isAnon) await linkWithRedirect(current, provider);
-                    else await signInWithRedirect(auth, provider);
-                } else {
-                    let result;
-                    if (isAnon) {
-                        result = await linkWithPopup(current, provider);
-                        syncActiveUserFromFirebase(result.user);
-                    } else {
-                        result = await signInWithPopup(auth, provider);
-                    }
-                    showToast(`Willkommen, ${result.user.displayName || 'Entdecker'}! 🌍`, "success");
-                    sessionStorage.removeItem('wl_auth_in_progress');
-                    sessionStorage.removeItem('wl_anon_uid');
-                    window.closeActiveModal();
-                    await handleIncomingInviteLink(result.user.uid);
-                }
+                const result = await signInWithPopup(auth, provider);
+                showToast(`Willkommen, ${result.user.displayName || 'Entdecker'}! 🌍`, "success");
+                window.closeActiveModal();
+                // Nach Google-Login: ausstehenden Invite verarbeiten
+                if (result.user) await handleIncomingInviteLink(result.user.uid);
             } catch (err) {
-                if (err.code === 'auth/credential-already-in-use') {
-                    // Das Google-Konto existiert bereits: normal einloggen und
-                    // Mitgliedschaften der anonymen UID übertragen.
-                    await signInExistingGoogleAccount(err);
-                } else if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
-                    const fallback = isAnon
-                        ? linkWithRedirect(current, provider)
-                        : signInWithRedirect(auth, provider);
-                    await fallback.catch(() => showToast("Google-Anmeldung fehlgeschlagen.", "error"));
-                } else if (err.code === 'auth/unauthorized-domain' || err.message?.includes('auth/unauthorized-domain')) {
+                console.error("Google Auth Error:", err);
+                if (err.code === 'auth/unauthorized-domain' || err.message?.includes('auth/unauthorized-domain')) {
                     handleUnauthorizedDomain();
+                } else if (err.code === 'auth/popup-blocked') {
+                    showToast("Popup wurde blockiert. Bitte erlaube Popups für diese Seite und versuche es erneut.", "error");
+                } else if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+                    // User hat das Popup selbst geschlossen – kein Fehler-Toast nötig
                 } else {
                     showToast("Google-Anmeldung fehlgeschlagen.", "error");
                 }
             }
         };
 
-        // Fallback: Google-Konto existiert bereits → einloggen + Mitgliedschaften
-        // von der anonymen UID auf das bestehende Konto übertragen.
-        async function signInExistingGoogleAccount(err) {
-            try {
-                const cred   = GoogleAuthProvider.credentialFromError(err);
-                const oldUid = sessionStorage.getItem('wl_anon_uid');
-                if (!cred) throw new Error("No credential");
-                const result = await signInWithCredential(auth, cred);
-                if (oldUid) await migrateMemberships(oldUid, result.user.uid);
-                sessionStorage.removeItem('wl_auth_in_progress');
-                sessionStorage.removeItem('wl_anon_uid');
-                showToast(`Willkommen zurück, ${result.user.displayName || 'Entdecker'}! 🌍`, "success");
-                window.closeActiveModal();
-                await handleIncomingInviteLink(result.user.uid);
-            } catch (e) {
-                console.error("Existing account sign-in failed:", e);
-                showToast("Google-Anmeldung fehlgeschlagen.", "error");
-            }
-        }
-
-        // Überträgt Trip-Mitgliedschaften einer alten (anonymen) UID auf die
-        // neue UID. Grundlage ist der lokale Cache, da die alte UID nach dem
-        // Kontowechsel nicht mehr authentifiziert ist.
-        async function migrateMemberships(oldUid, newUid) {
-            if (!firebaseAvailable || !db || !oldUid || oldUid === newUid) return;
-            const affected = tripsList.filter(t =>
-                (t.members || []).includes(oldUid) || t.ownerId === oldUid
-            );
-            for (const trip of affected) {
-                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'trips', trip.id);
-                try {
-                    // Schritt 1: Selbst beitreten (durch Self-Join-Rule erlaubt).
-                    await updateDoc(ref, { members: arrayUnion(newUid) });
-                    // Schritt 2: Als Mitglied die alte UID entfernen und ggf.
-                    // Ownership übernehmen.
-                    const patch = { members: arrayRemove(oldUid) };
-                    if (trip.ownerId === oldUid) patch.ownerId = newUid;
-                    await updateDoc(ref, patch);
-                } catch (e) {
-                    console.error("Membership migration failed for trip:", trip.id, e);
-                }
-            }
-        }
-
+        // FIX 2: performSignOut no longer nukes the local cache.
+        // Trips are re-fetched from the cloud on the next login.
         window.performSignOut = async function() {
             if (!firebaseAvailable || !auth) return;
             try {
@@ -975,15 +887,12 @@
             if (!memory) return;
             const title   = document.getElementById('lightbox-title');
             const content = document.getElementById('lightbox-content');
-            const authorLine = memory.authorName
-                ? `<p class="text-[10px] text-neutral-500 text-center"><i class="fa-solid fa-user-pen text-bronze-500 mr-1"></i>Von ${escapeHTML(memory.authorName)}</p>`
-                : '';
             if (memory.type === 'note') {
                 title.innerText = "Anekdote lesen";
-                content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>${authorLine}`;
+                content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>`;
             } else {
                 title.innerText = memory.isAI ? "🎨 KI Postkarte" : "📸 Foto";
-                content.innerHTML = `<img src="${memory.image}" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 select-none" alt="Memory">${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}${authorLine}`;
+                content.innerHTML = `<img src="${memory.image}" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 select-none" alt="Memory">${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}`;
             }
             window.showModal('modal-lightbox');
         };
@@ -1171,11 +1080,7 @@
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
             if (!trip.memories) trip.memories = [];
-            const newMem = {
-                id: 'mem_' + Date.now(), type: 'note', text: content, timestamp: Date.now(),
-                authorUid:  activeUser?.uid || null,
-                authorName: activeUser?.displayName || 'Unbekannt'
-            };
+            const newMem = { id: 'mem_' + Date.now(), type: 'note', text: content, timestamp: Date.now() };
             trip.memories.push(newMem);
             saveTripsToLocalStorage();
             renderTripMemoriesGrid();
@@ -1202,11 +1107,7 @@
                 isAI = true;
             }
             if (!trip.memories) trip.memories = [];
-            trip.memories.push({
-                id: 'mem_' + Date.now(), type: 'photo', image: finalImage, text: finalCaption, isAI, timestamp: Date.now(),
-                authorUid:  activeUser?.uid || null,
-                authorName: activeUser?.displayName || 'Unbekannt'
-            });
+            trip.memories.push({ id: 'mem_' + Date.now(), type: 'photo', image: finalImage, text: finalCaption, isAI, timestamp: Date.now() });
             uploadedImageBase64 = null; generatedAIBase64 = null;
             const prev = document.getElementById('upload-preview-img');
             if (prev) prev.classList.add('hidden');
@@ -1353,11 +1254,6 @@
 
         // ── App startup ──────────────────────────────────────────────────
         async function startApp() {
-            // FIX D: Invite-Hash SOFORT beim Seitenstart sichern – vor jeder
-            // Firebase-Interaktion. Firebase Auth (Redirect-Flows) kann den
-            // URL-Hash manipulieren, bevor initApp() ihn liest.
-            captureInviteHash();
-
             loadLocalCache();
             renderDashboardTrips();
             updateUIState();
@@ -1387,19 +1283,7 @@
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startApp);
         else startApp();
 
-        function captureInviteHash() {
-            const rawHash = window.location.hash;
-            if (rawHash?.includes('inviteTrip=')) {
-                const m = rawHash.match(/inviteTrip=([^&]+)/);
-                if (m?.[1]) {
-                    sessionStorage.setItem('wl_pending_invite', m[1]);
-                    // Hash entfernen ohne Seiten-Reload
-                    history.replaceState(null, '', window.location.pathname + window.location.search);
-                }
-            }
-        }
-
-        // Guest state without touching localStorage
+        // FIX 3: Guest state without touching localStorage
         function setGuestUserState() {
             activeUser = {
                 uid: 'local_guest',
@@ -1408,20 +1292,6 @@
                 email: 'lokal@wanderlust.de'
             };
             // Do NOT wipe the cache here – let local trips survive guest sessions
-        }
-
-        // Baut activeUser aus dem Firebase-User und aktualisiert die UI.
-        // Wird auch nach Account-Linking benötigt, da onAuthStateChanged bei
-        // Linking (gleicher User, geänderte Provider) nicht erneut feuert.
-        function syncActiveUserFromFirebase(user) {
-            activeUser = {
-                uid: user.uid,
-                isAnonymous: user.isAnonymous,
-                displayName: user.displayName || (user.isAnonymous ? 'Gast-Entdecker' : user.email?.split('@')[0] || 'Entdecker'),
-                email: user.email || '',
-                photoURL: user.photoURL
-            };
-            updateUIState();
         }
 
         async function initApp() {
@@ -1444,70 +1314,63 @@
                 setTimeout(() => { if (!done) { done = true; unsub(); resolve(null); } }, 3000);
             });
 
-            // Handle redirect result (Google OAuth finish – auch für Link-Redirects)
-            try {
-                const result = await getRedirectResult(auth);
-                if (result?.user) {
-                    showToast(`Willkommen, ${result.user.displayName || 'Entdecker'}! 🌍`, "success");
-                    sessionStorage.removeItem('wl_auth_in_progress');
-                    sessionStorage.removeItem('wl_anon_uid');
-                }
-            } catch (err) {
-                if (err.code === 'auth/credential-already-in-use') {
-                    // linkWithRedirect fehlgeschlagen, weil das Google-Konto
-                    // bereits existiert → einloggen + Mitgliedschaften migrieren.
-                    await signInExistingGoogleAccount(err);
-                } else if (err.code === 'auth/unauthorized-domain' || err.message?.includes('auth/unauthorized-domain')) {
-                    if (sessionStorage.getItem('wl_auth_in_progress')) {
-                        handleUnauthorizedDomain();
-                        sessionStorage.removeItem('wl_auth_in_progress');
-                    }
+            // Redirect-Handling entfernt: signInWithGoogle nutzt jetzt
+            // ausschließlich signInWithPopup (Third-Party-Cookie-sicher).
+            // Ein evtl. noch gesetztes altes Flag aufräumen:
+            sessionStorage.removeItem('wl_auth_in_progress');
+
+            // Invite-Hash sofort beim Laden in sessionStorage parken,
+            // bevor Firebase Auth den Hash potenziell wegräumt.
+            const rawHash = window.location.hash;
+            if (rawHash?.includes('inviteTrip=')) {
+                const m = rawHash.match(/inviteTrip=([^&]+)/);
+                if (m?.[1]) {
+                    sessionStorage.setItem('wl_pending_invite', m[1]);
+                    window.location.hash = '';
                 }
             }
 
-            // FIX E: Persistenter Auth-Listener. Invites werden jetzt für ALLE
-            // eingeloggten User verarbeitet – auch anonyme. Verlässt ein anonymer
-            // User seine Session, upgraded er später per Linking (UID bleibt),
-            // sodass die Mitgliedschaft dauerhaft erhalten bleibt.
+            // FIX 4: Persistent auth state listener – single source of truth
             onAuthStateChanged(auth, async (user) => {
                 // Tear down old subscription before doing anything else
                 if (firestoreUnsubscribe) { firestoreUnsubscribe(); firestoreUnsubscribe = null; }
 
                 if (user) {
-                    syncActiveUserFromFirebase(user);
+                    activeUser = {
+                        uid: user.uid,
+                        isAnonymous: user.isAnonymous,
+                        displayName: user.displayName || (user.isAnonymous ? 'Gast-Entdecker' : user.email?.split('@')[0] || 'Entdecker'),
+                        email: user.email || '',
+                        photoURL: user.photoURL
+                    };
 
                     // Subscription zuerst aufbauen
                     setupFirestoreSubscription();
 
                     if (!user.isAnonymous) {
                         await migrateLocalDataToCloud(user.uid);
+                        // Invite nur für eingeloggte User verarbeiten –
+                        // anonyme UIDs sind flüchtig und würden den Trip
+                        // nach einem Reload wieder verlieren.
+                        await handleIncomingInviteLink(user.uid);
+                    } else {
+                        // Gast-User: Invite-Hinweis anzeigen und zum Login auffordern
+                        const pendingInvite = sessionStorage.getItem('wl_pending_invite');
+                        if (pendingInvite) {
+                            showToast("Bitte melde dich an, um dem geteilten Trip beizutreten.", "info");
+                            // Profil-Modal öffnen damit der User sich einloggen kann
+                            setTimeout(() => window.toggleProfileCenter(), 800);
+                        }
                     }
-
-                    // Invite für JEDEN eingeloggten User verarbeiten,
-                    // anonyme User eingeschlossen.
-                    await handleIncomingInviteLink(user.uid);
                 } else {
                     // No session at all – sign in anonymously for a local-only experience
                     try {
-                        const isRedirecting = sessionStorage.getItem('wl_auth_in_progress') === 'true';
-                        if (!isRedirecting) {
-                            await signInAnonymously(auth);
-                            // onAuthStateChanged will fire again with the anon user
-                        } else {
-                            setGuestUserState();
-                            updateUIState();
-                        }
+                        await signInAnonymously(auth);
+                        // onAuthStateChanged will fire again with the anon user
                     } catch (e) {
                         console.warn("Anonymous sign-in failed. Fully offline.", e);
-                        // WICHTIG: 'auth/admin-restricted-operation' bedeutet, dass
-                        // der Provider "Anonym" in der Firebase Console deaktiviert
-                        // ist. Ohne Auth-Session sind ALLE Firestore-Zugriffe
-                        // blockiert → keine Trips, keine Invites.
                         setGuestUserState();
                         updateUIState();
-                        if (sessionStorage.getItem('wl_pending_invite')) {
-                            showToast("Cloud nicht erreichbar – Einladung kann nicht geladen werden.", "error");
-                        }
                     }
                 }
                 updateUIState();
@@ -1516,30 +1379,27 @@
 
         async function handleIncomingInviteLink(userId) {
             if (!firebaseAvailable || !db || !auth.currentUser) return;
+            // Lese aus sessionStorage – dort wurde der Hash beim Seitenaufruf geparkt
             const inviteId = sessionStorage.getItem('wl_pending_invite');
             if (!inviteId) return;
-            // Sofort löschen, damit es nicht doppelt verarbeitet wird
+            // Sofort löschen damit es nicht doppelt verarbeitet wird
             sessionStorage.removeItem('wl_pending_invite');
             showToast("Trete Abenteuer-Gruppe bei...", "info");
             try {
                 const tripRef = doc(db, 'artifacts', appId, 'public', 'data', 'trips', inviteId);
-                // Voraussetzung: Security Rule erlaubt 'get' für eingeloggte User
-                // (siehe Rules) – sonst scheitert der Invite-Flow IMMER am
-                // Henne-Ei-Problem: Nicht-Mitglieder dürfen weder lesen noch
-                // sich selbst eintragen.
                 const snap = await getDoc(tripRef);
                 if (snap.exists()) {
                     const data = snap.data();
-                    const members = data.members || [data.ownerId];
+                    let members = data.members || [data.ownerId];
                     if (!members.includes(userId)) {
-                        // FIX B: Atomarer Self-Join per arrayUnion. Passt exakt
-                        // zur Self-Join-Security-Rule und ist race-sicher.
-                        await updateDoc(tripRef, { members: arrayUnion(userId) });
                         members.push(userId);
+                        await updateDoc(tripRef, { members });
                     }
 
-                    // Trip sofort lokal einfügen – onSnapshot liefert den neuen
-                    // Eintrag u.U. erst nach einigen Sekunden.
+                    // FIX B: Trip sofort lokal einfügen.
+                    // Firestore-Indexes sind eventual consistent – onSnapshot liefert
+                    // den neuen Eintrag u.U. erst nach einigen Sekunden. Durch direktes
+                    // Einfügen in tripsList ist der Trip für den Eingeladenen sofort sichtbar.
                     const tripData = { id: inviteId, ...data, members };
                     const existsLocally = tripsList.find(t => t.id === inviteId);
                     if (!existsLocally) {
@@ -1556,11 +1416,7 @@
                 }
             } catch (e) {
                 console.error("Invite join error:", e);
-                if (e.code === 'permission-denied') {
-                    showToast("Beitreten fehlgeschlagen: Zugriff verweigert. Bitte Security Rules prüfen.", "error");
-                } else {
-                    showToast("Beitreten fehlgeschlagen.", "error");
-                }
+                showToast("Beitreten fehlgeschlagen.", "error");
             }
         }
 
@@ -1571,7 +1427,9 @@
             } catch { tripsList = []; }
         }
 
-        // Firestore subscription uses server-side 'array-contains' query
+        // FIX 5: Firestore subscription uses server-side 'array-contains' query
+        // instead of reading ALL documents and filtering in JS.
+        // This is both more secure and avoids permission errors.
         function setupFirestoreSubscription() {
             if (!firebaseAvailable || !db || !auth.currentUser) return;
 
@@ -1601,12 +1459,8 @@
             });
         }
 
-        // FIX F: migrateLocalDataToCloud migriert NUR echte Offline-Trips
-        // (ownerId 'local_guest' / fehlend). Vorher wurden ALLE lokal
-        // gecachten Trips mit ownerId/members des neuen Users überschrieben –
-        // geteilte Trips anderer Owner wurden dadurch "gekapert" und deren
-        // Mitgliederliste zerstört. Anonyme Trips brauchen keine Migration
-        // mehr, da beim Upgrade die UID per Linking erhalten bleibt.
+        // FIX 6: migrateLocalDataToCloud now correctly handles all local trips,
+        // including those created during an anonymous session (ownerId = anon uid or 'local_guest').
         async function migrateLocalDataToCloud(userUid) {
             if (!firebaseAvailable || !db || !auth.currentUser) return;
             const raw = localStorage.getItem('wanderlust_trips_cache');
@@ -1615,7 +1469,8 @@
             try { localTrips = JSON.parse(raw); } catch { return; }
             if (!localTrips.length) return;
 
-            const toMigrate = localTrips.filter(t => !t.ownerId || t.ownerId === 'local_guest');
+            // Only migrate trips that are NOT already owned by this authenticated account
+            const toMigrate = localTrips.filter(t => t.ownerId !== userUid);
             if (!toMigrate.length) return;
 
             for (const trip of toMigrate) {
@@ -1628,8 +1483,8 @@
                     timestamp: trip.timestamp || Date.now()
                 }, { merge: true }).catch(e => console.error("Migration of trip failed:", e));
             }
-            // Kein removeItem des kompletten Caches mehr – die Firestore-
-            // Subscription überschreibt den Cache ohnehin mit dem Cloud-Stand.
+            // Clear local cache – Firestore subscription will repopulate it
+            localStorage.removeItem('wanderlust_trips_cache');
         }
 
         function setupAutocompleteInput(inputId, dropdownId, onSelect) {
@@ -1780,15 +1635,10 @@
                 const el = document.createElement('div');
                 el.className = "break-inside-avoid bg-forest-900/20 border border-forest-900/40 hover:border-bronze-500/30 rounded-2xl overflow-hidden p-3 space-y-2 mb-3 shadow-md relative cursor-pointer transition duration-155 hover:scale-[1.01]";
                 el.onclick = e => { if (e.target.closest('button')) return; window.openLightbox(memory.id); };
-                // Autor-Badge: nur anzeigen, wenn bekannt (ältere Einträge
-                // haben noch keinen authorName).
-                const authorTag = memory.authorName
-                    ? ` · <span class="text-neutral-400 normal-case">${escapeHTML(memory.authorName)}</span>`
-                    : '';
                 if (memory.type === 'note') {
-                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold">Gedanke${authorTag}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold">Gedanke</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
                 } else {
-                    el.innerHTML = `<img src="${memory.image}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold">${memory.isAI ? '🎨 Imagen Postkarte' : '📸 Foto'}${authorTag}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                    el.innerHTML = `<img src="${memory.image}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold">${memory.isAI ? '🎨 Imagen Postkarte' : '📸 Foto'}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
                 }
                 grid.appendChild(el);
             });
@@ -1803,14 +1653,7 @@
         }
 
         function translateAuthError(code) {
-            return {
-                'auth/invalid-credential': 'Ungültige Anmeldedaten.',
-                'auth/email-already-in-use': 'E-Mail bereits in Verwendung.',
-                'auth/credential-already-in-use': 'Dieses Konto ist bereits mit einem anderen Profil verknüpft.',
-                'auth/weak-password': 'Passwort zu schwach (min. 6 Zeichen).',
-                'auth/invalid-email': 'Ungültiges E-Mail-Format.',
-                'auth/admin-restricted-operation': 'Anmeldemethode in Firebase nicht aktiviert.'
-            }[code] || 'Ein Fehler ist aufgetreten.';
+            return { 'auth/invalid-credential': 'Ungültige Anmeldedaten.', 'auth/email-already-in-use': 'E-Mail bereits in Verwendung.', 'auth/weak-password': 'Passwort zu schwach (min. 6 Zeichen).', 'auth/invalid-email': 'Ungültiges E-Mail-Format.' }[code] || 'Ein Fehler ist aufgetreten.';
         }
 
         async function runGeminiRequest(payload) {

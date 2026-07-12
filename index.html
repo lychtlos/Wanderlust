@@ -127,6 +127,16 @@
                     </div>
                 </div>
 
+                <!-- Echtzeit-Freitextsuche -->
+                <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-bronze-500/60 text-xs pointer-events-none"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="text" id="trip-search-input" placeholder="Suche nach Ort, Name, Notizen..." autocomplete="off"
+                        class="w-full bg-forest-900/30 border border-forest-900/60 focus:border-bronze-500/50 rounded-xl pl-9 pr-9 py-2.5 text-xs text-neutral-200 outline-none transition placeholder-neutral-600">
+                    <button id="trip-search-clear" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-bronze-400 text-xs hidden transition" title="Suche löschen">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
                 <div id="dashboard-empty" class="py-12 text-center space-y-3">
                     <div class="w-16 h-16 mx-auto rounded-3xl bg-forest-900/25 border border-forest-900/30 flex items-center justify-center text-neutral-500">
                         <i class="fa-solid fa-map-location-dot text-2xl text-bronze-500/40"></i>
@@ -554,7 +564,7 @@
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import {
             getFirestore, collection, doc, setDoc, getDoc, onSnapshot,
-            updateDoc, deleteDoc,
+            updateDoc, deleteDoc, arrayUnion,
             // FIX 1: Import query and where for proper server-side filtering
             query, where
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -854,8 +864,11 @@
             }
 
             // Background Firestore sync
+            // members via arrayUnion: fügt nur hinzu, entfernt nie – so kann ein
+            // veralteter lokaler Stand keine Mitglieder aus dem Trip werfen.
             if (firebaseAvailable && db && auth.currentUser) {
-                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', id), payload, { merge: true })
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', id),
+                    { ...payload, members: arrayUnion(...members) }, { merge: true })
                     .catch(e => console.error("Firestore save failed:", e));
             }
         };
@@ -1278,6 +1291,24 @@
             document.getElementById('btn-execute-delete')?.addEventListener('click', window.executeDeleteTrip);
             document.getElementById('trip-filter-select')?.addEventListener('change', renderDashboardTrips);
             document.querySelectorAll('input[name="trip-transport"]').forEach(el => el.addEventListener('change', recalculatePreviewDistance));
+
+            // Echtzeit-Suche: rendert bei jedem Tastendruck neu (rein lokal, kein Netzwerk)
+            const searchInput = document.getElementById('trip-search-input');
+            const searchClear = document.getElementById('trip-search-clear');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    searchClear?.classList.toggle('hidden', !searchInput.value);
+                    renderDashboardTrips();
+                });
+            }
+            if (searchClear) {
+                searchClear.addEventListener('click', () => {
+                    searchInput.value = '';
+                    searchClear.classList.add('hidden');
+                    renderDashboardTrips();
+                    searchInput.focus();
+                });
+            }
         }
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startApp);
@@ -1393,7 +1424,8 @@
                     let members = data.members || [data.ownerId];
                     if (!members.includes(userId)) {
                         members.push(userId);
-                        await updateDoc(tripRef, { members });
+                        // arrayUnion = atomar, überschreibt keine parallelen Beitritte
+                        await updateDoc(tripRef, { members: arrayUnion(userId) });
                     }
 
                     // FIX B: Trip sofort lokal einfügen.
@@ -1469,8 +1501,17 @@
             try { localTrips = JSON.parse(raw); } catch { return; }
             if (!localTrips.length) return;
 
-            // Only migrate trips that are NOT already owned by this authenticated account
-            const toMigrate = localTrips.filter(t => t.ownerId !== userUid);
+            // FIX: Nur echte lokale Gast-Trips migrieren.
+            // Ein Trip ist NUR dann lokal, wenn: keine ownerId, ownerId='local_guest',
+            // oder eine fremde ownerId bei der der User NICHT im members-Array steht
+            // (= verwaiste anonyme Session). Geteilte Trips (User ist member) NIEMALS
+            // anfassen – sonst wird die Mitgliederliste zerstört!
+            const toMigrate = localTrips.filter(t => {
+                if (!t.ownerId || t.ownerId === 'local_guest') return true;   // echter Gast-Trip
+                if (t.ownerId === userUid) return false;                       // gehört mir schon
+                if ((t.members || []).includes(userUid)) return false;         // geteilter Trip – NICHT anfassen
+                return true;                                                   // verwaiste anonyme Session
+            });
             if (!toMigrate.length) return;
 
             for (const trip of toMigrate) {
@@ -1574,14 +1615,34 @@
             if (countEl) countEl.innerText = tripsList.length;
         }
 
+        // Prüft ob ein Trip zum Suchbegriff passt – durchsucht Name, Orte,
+        // Reisezweck, Verkehrsmittel und alle Pinnwand-Texte (Notizen + Bildunterschriften)
+        function tripMatchesSearch(trip, term) {
+            if (!term) return true;
+            const haystack = [
+                trip.name,
+                trip.origin,
+                trip.destination,
+                trip.purpose,
+                trip.transport,
+                ...(trip.memories || []).map(m => m.text || '')
+            ].join(' ').toLowerCase();
+            // Alle eingegebenen Wörter müssen vorkommen (UND-Verknüpfung)
+            return term.toLowerCase().split(/\s+/).filter(Boolean)
+                .every(word => haystack.includes(word));
+        }
+
         function renderDashboardTrips() {
             const list  = document.getElementById('trips-list');
             const empty = document.getElementById('dashboard-empty');
             if (!list) return;
             list.innerHTML = '';
-            const filter = document.getElementById('trip-filter-select')?.value || 'All';
+            const filter     = document.getElementById('trip-filter-select')?.value || 'All';
+            const searchTerm = document.getElementById('trip-search-input')?.value.trim() || '';
             const sorted = [...tripsList].sort((a, b) => (b.dateStart || '').localeCompare(a.dateStart || ''));
-            const shown  = filter === 'All' ? sorted : sorted.filter(t => t.purpose === filter);
+            const shown  = sorted
+                .filter(t => filter === 'All' || t.purpose === filter)
+                .filter(t => tripMatchesSearch(t, searchTerm));
             const badge  = document.getElementById('trips-count-badge');
             if (badge) badge.innerText = `${shown.length} ${shown.length === 1 ? 'Trip' : 'Trips'}`;
             if (!shown.length) { empty?.classList.remove('hidden'); return; }

@@ -11,6 +11,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Wanderlust">
     <meta name="description" content="Wanderlust – dein kollaboratives Reisetagebuch.">
+    <!-- Echtes Manifest als separate Datei – Voraussetzung für Fullscreen-Installation -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <script>
         // beforeinstallprompt kann sehr früh feuern – hier abfangen und aufheben,
         // bevor das Haupt-Modul geladen ist.
@@ -1403,57 +1406,14 @@
 
         // ── PWA: Manifest dynamisch erzeugen (Single-File-App, kein separates manifest.json nötig) ──
         function setupPWA() {
-            // App-Icon zur Laufzeit zeichnen: Kompass auf Kupfer-Verlauf
-            function drawIcon(size) {
-                const c = document.createElement('canvas');
-                c.width = c.height = size;
-                const ctx = c.getContext('2d');
-                const g = ctx.createLinearGradient(0, size, size, 0);
-                g.addColorStop(0, '#b87333');
-                g.addColorStop(1, '#d5783f');
-                ctx.fillStyle = '#022c22';
-                ctx.fillRect(0, 0, size, size);
-                ctx.fillStyle = g;
-                const r = size * 0.22;
-                ctx.beginPath();
-                ctx.roundRect(size * 0.08, size * 0.08, size * 0.84, size * 0.84, r);
-                ctx.fill();
-                // Kompass: Kreis + Nadel
-                ctx.strokeStyle = '#022c22';
-                ctx.lineWidth = size * 0.045;
-                ctx.beginPath();
-                ctx.arc(size / 2, size / 2, size * 0.26, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.fillStyle = '#022c22';
-                ctx.beginPath();
-                ctx.moveTo(size * 0.62, size * 0.38);
-                ctx.lineTo(size * 0.46, size * 0.52);
-                ctx.lineTo(size * 0.38, size * 0.62);
-                ctx.lineTo(size * 0.54, size * 0.48);
-                ctx.closePath();
-                ctx.fill();
-                return c.toDataURL('image/png');
+            // Service Worker registrieren – zweite Pflichtvoraussetzung neben dem
+            // Manifest, damit Chrome die App als echte (Fullscreen-)PWA installiert
+            // statt nur einen Browser-Shortcut anzulegen.
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js').catch(err => {
+                    console.warn("Service Worker Registrierung fehlgeschlagen:", err);
+                });
             }
-
-            const manifest = {
-                name: 'Wanderlust – Reisetagebuch',
-                short_name: 'Wanderlust',
-                description: 'Dein kollaboratives Reisetagebuch.',
-                // Absolute URL zwingend nötig, da das Manifest als data:-URI eingebunden wird
-                start_url: window.location.origin + window.location.pathname,
-                scope: window.location.origin + window.location.pathname,
-                display: 'standalone',
-                background_color: '#090d0c',
-                theme_color: '#022c22',
-                icons: [
-                    { src: drawIcon(192), sizes: '192x192', type: 'image/png', purpose: 'any' },
-                    { src: drawIcon(512), sizes: '512x512', type: 'image/png', purpose: 'any' }
-                ]
-            };
-            const link = document.createElement('link');
-            link.rel = 'manifest';
-            link.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(manifest));
-            document.head.appendChild(link);
 
             // Bereits installiert? Dann keine Banner anzeigen
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches

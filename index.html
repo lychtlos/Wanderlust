@@ -4,6 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wanderlust</title>
+    <!-- PWA Meta-Tags -->
+    <meta name="theme-color" content="#022c22">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Wanderlust">
+    <meta name="description" content="Wanderlust – dein kollaboratives Reisetagebuch.">
+    <script>
+        // beforeinstallprompt kann sehr früh feuern – hier abfangen und aufheben,
+        // bevor das Haupt-Modul geladen ist.
+        window.wlDeferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.wlDeferredInstallPrompt = e;
+            document.getElementById('pwa-install-cta')?.classList.remove('hidden');
+        });
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -111,6 +128,27 @@
                         <p class="text-[10px] text-neutral-300 leading-relaxed">Melde dich kostenlos an, um deine Trips geräteübergreifend zu sichern!</p>
                     </div>
                     <button onclick="toggleProfileCenter()" class="px-3 py-1.5 bg-bronze-600 hover:bg-bronze-500 text-forest-950 text-[10px] font-bold font-display uppercase tracking-wider rounded-lg transition whitespace-nowrap">Anmelden</button>
+                </div>
+
+                <!-- PWA Install Banner (nur sichtbar wenn installierbar) -->
+                <div id="pwa-install-cta" class="hidden bg-gradient-to-r from-forest-900/40 to-bronze-950/20 border border-bronze-500/20 rounded-2xl p-4 flex items-center justify-between">
+                    <div class="space-y-1 pr-2">
+                        <h4 class="text-xs font-bold font-display text-bronze-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+                            <span>Als App installieren</span>
+                        </h4>
+                        <p class="text-[10px] text-neutral-300 leading-relaxed">Wanderlust auf dem Homescreen – startet im Vollbild wie eine echte App.</p>
+                    </div>
+                    <button onclick="installPWA()" class="px-3 py-1.5 bg-bronze-600 hover:bg-bronze-500 text-forest-950 text-[10px] font-bold font-display uppercase tracking-wider rounded-lg transition whitespace-nowrap">Installieren</button>
+                </div>
+
+                <!-- iOS-Hinweis (Safari hat keinen Install-Prompt) -->
+                <div id="pwa-ios-hint" class="hidden bg-forest-900/30 border border-bronze-500/15 rounded-2xl p-4 space-y-1">
+                    <h4 class="text-xs font-bold font-display text-bronze-400 flex items-center gap-1.5">
+                        <i class="fa-brands fa-apple"></i>
+                        <span>Als App installieren</span>
+                    </h4>
+                    <p class="text-[10px] text-neutral-300 leading-relaxed">Tippe in Safari auf <i class="fa-solid fa-arrow-up-from-bracket text-bronze-400"></i> <strong>Teilen</strong> und dann auf <strong>„Zum Home-Bildschirm"</strong>.</p>
                 </div>
 
                 <div class="flex items-center justify-between pt-1 gap-2">
@@ -568,6 +606,9 @@
             // FIX 1: Import query and where for proper server-side filtering
             query, where
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import {
+            getStorage, ref as storageRef, uploadString, getDownloadURL, deleteObject
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBKUL_iThk5jhZr7npM5HJjQ-FBopBnO7Q",
@@ -578,13 +619,14 @@
             appId: "1:638626664196:web:055e66c3f7757b0a7d0a51"
         };
 
-        let app = null, auth = null, db = null;
+        let app = null, auth = null, db = null, storage = null;
         let firebaseAvailable = false;
 
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
+            storage = getStorage(app);
             firebaseAvailable = true;
         } catch (e) {
             console.warn("Firebase init failed. Falling back to local storage.", e);
@@ -688,6 +730,7 @@
         window.executeDeleteTrip = async function() {
             if (!activeTripId) return;
             const idToDelete = activeTripId;
+            const tripToDelete = tripsList.find(t => t.id === idToDelete);
             tripsList = tripsList.filter(t => t.id !== idToDelete);
             saveTripsToLocalStorage();
             window.closeActiveModal();
@@ -697,6 +740,13 @@
             if (firebaseAvailable && db && auth.currentUser) {
                 deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', idToDelete))
                     .catch(e => console.error("Cloud deletion failed:", e));
+                // Alle zugehörigen Storage-Fotos mit löschen (Fire & Forget)
+                if (storage && tripToDelete?.memories) {
+                    tripToDelete.memories
+                        .filter(m => m.storagePath)
+                        .forEach(m => deleteObject(storageRef(storage, m.storagePath))
+                            .catch(e => console.warn("Storage-Datei nicht gelöscht:", e)));
+                }
             }
         };
 
@@ -913,6 +963,7 @@
         window.deleteMemory = async function(memoryId) {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
+            const memToDelete = (trip.memories || []).find(m => m.id === memoryId);
             trip.memories = (trip.memories || []).filter(m => m.id !== memoryId);
             saveTripsToLocalStorage();
             renderTripMemoriesGrid();
@@ -920,6 +971,11 @@
             if (firebaseAvailable && db && auth.currentUser) {
                 updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId), { memories: trip.memories })
                     .catch(e => console.error("Cloud memory deletion failed:", e));
+                // Zugehörige Storage-Datei mit löschen (Fire & Forget)
+                if (memToDelete?.storagePath && storage) {
+                    deleteObject(storageRef(storage, memToDelete.storagePath))
+                        .catch(e => console.warn("Storage-Datei konnte nicht gelöscht werden:", e));
+                }
             }
         };
 
@@ -1105,6 +1161,16 @@
             }
         };
 
+        // Lädt ein base64-Bild zu Firebase Storage hoch und gibt { url, path } zurück.
+        // Wirft bei Fehler – Aufrufer entscheidet über Fallback.
+        async function uploadImageToStorage(base64DataUrl, tripId, memId) {
+            const path = `trips/${tripId}/${memId}.jpg`;
+            const fileRef = storageRef(storage, path);
+            await uploadString(fileRef, base64DataUrl, 'data_url');
+            const url = await getDownloadURL(fileRef);
+            return { url, path };
+        }
+
         window.savePhotoMemory = async function() {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
@@ -1119,8 +1185,26 @@
                 finalCaption = document.getElementById('ai-photo-prompt')?.value.trim() || "";
                 isAI = true;
             }
+
+            const memId = 'mem_' + Date.now();
+            const newMemory = { id: memId, type: 'photo', image: finalImage, text: finalCaption, isAI, timestamp: Date.now() };
+
+            // Firebase Storage Upload: base64 → Cloud, nur URL im Firestore-Dokument.
+            // Vorteil: kein 1-MiB-Dokumentlimit mehr, beliebig viele Fotos pro Trip.
+            if (firebaseAvailable && storage && auth.currentUser) {
+                showToast("Foto wird hochgeladen... ☁️", "info");
+                try {
+                    const { url, path } = await uploadImageToStorage(finalImage, activeTripId, memId);
+                    newMemory.image = url;          // Download-URL statt base64
+                    newMemory.storagePath = path;   // Für spätere Löschung merken
+                } catch (e) {
+                    console.warn("Storage-Upload fehlgeschlagen, speichere base64 als Fallback:", e);
+                    // newMemory.image bleibt base64 – funktioniert weiterhin, nur mit Größenlimit
+                }
+            }
+
             if (!trip.memories) trip.memories = [];
-            trip.memories.push({ id: 'mem_' + Date.now(), type: 'photo', image: finalImage, text: finalCaption, isAI, timestamp: Date.now() });
+            trip.memories.push(newMemory);
             uploadedImageBase64 = null; generatedAIBase64 = null;
             const prev = document.getElementById('upload-preview-img');
             if (prev) prev.classList.add('hidden');
@@ -1313,6 +1397,100 @@
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startApp);
         else startApp();
+
+        // ── PWA: Manifest dynamisch erzeugen (Single-File-App, kein separates manifest.json nötig) ──
+        function setupPWA() {
+            // App-Icon zur Laufzeit zeichnen: Kompass auf Kupfer-Verlauf
+            function drawIcon(size) {
+                const c = document.createElement('canvas');
+                c.width = c.height = size;
+                const ctx = c.getContext('2d');
+                const g = ctx.createLinearGradient(0, size, size, 0);
+                g.addColorStop(0, '#b87333');
+                g.addColorStop(1, '#d5783f');
+                ctx.fillStyle = '#022c22';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = g;
+                const r = size * 0.22;
+                ctx.beginPath();
+                ctx.roundRect(size * 0.08, size * 0.08, size * 0.84, size * 0.84, r);
+                ctx.fill();
+                // Kompass: Kreis + Nadel
+                ctx.strokeStyle = '#022c22';
+                ctx.lineWidth = size * 0.045;
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size * 0.26, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = '#022c22';
+                ctx.beginPath();
+                ctx.moveTo(size * 0.62, size * 0.38);
+                ctx.lineTo(size * 0.46, size * 0.52);
+                ctx.lineTo(size * 0.38, size * 0.62);
+                ctx.lineTo(size * 0.54, size * 0.48);
+                ctx.closePath();
+                ctx.fill();
+                return c.toDataURL('image/png');
+            }
+
+            const manifest = {
+                name: 'Wanderlust – Reisetagebuch',
+                short_name: 'Wanderlust',
+                description: 'Dein kollaboratives Reisetagebuch.',
+                // Absolute URL zwingend nötig, da das Manifest als data:-URI eingebunden wird
+                start_url: window.location.origin + window.location.pathname,
+                scope: window.location.origin + window.location.pathname,
+                display: 'standalone',
+                background_color: '#090d0c',
+                theme_color: '#022c22',
+                icons: [
+                    { src: drawIcon(192), sizes: '192x192', type: 'image/png', purpose: 'any' },
+                    { src: drawIcon(512), sizes: '512x512', type: 'image/png', purpose: 'any' }
+                ]
+            };
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(manifest));
+            document.head.appendChild(link);
+
+            // Bereits installiert? Dann keine Banner anzeigen
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                || window.navigator.standalone === true;
+            if (isStandalone) return;
+
+            // iOS Safari: kein beforeinstallprompt – stattdessen Anleitung zeigen
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            if (isIOS) {
+                document.getElementById('pwa-ios-hint')?.classList.remove('hidden');
+            }
+
+            // Falls beforeinstallprompt schon vor DOM-Ready gefeuert hat
+            if (window.wlDeferredInstallPrompt) {
+                document.getElementById('pwa-install-cta')?.classList.remove('hidden');
+            }
+        }
+
+        window.installPWA = async function() {
+            const promptEvent = window.wlDeferredInstallPrompt;
+            if (!promptEvent) {
+                showToast("Installation aktuell nicht verfügbar. Nutze das Browser-Menü → 'App installieren'.", "info");
+                return;
+            }
+            promptEvent.prompt();
+            const { outcome } = await promptEvent.userChoice;
+            if (outcome === 'accepted') {
+                showToast("Wanderlust wird installiert! 🎉", "success");
+                document.getElementById('pwa-install-cta')?.classList.add('hidden');
+            }
+            window.wlDeferredInstallPrompt = null;
+        };
+
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('pwa-install-cta')?.classList.add('hidden');
+            document.getElementById('pwa-ios-hint')?.classList.add('hidden');
+        });
+
+        setupPWA();
 
         // FIX 3: Guest state without touching localStorage
         function setGuestUserState() {

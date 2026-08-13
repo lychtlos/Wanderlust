@@ -224,9 +224,6 @@
                                 <span id="detail-trip-transport" class="w-8 h-8 rounded-lg bg-bronze-500/10 border border-bronze-500/20 flex items-center justify-center text-bronze-500 text-xs"></span>
                                 <span id="detail-trip-purpose" class="px-2.5 py-0.5 rounded-full bg-forest-950/60 text-bronze-500 text-[9px] font-bold font-display uppercase tracking-wider border border-forest-900"></span>
                             </div>
-                            <button onclick="openAIGuideModal()" class="px-2.5 py-1 rounded-lg bg-bronze-500/10 border border-bronze-500/20 text-bronze-400 text-[10px] font-bold font-display uppercase tracking-wider hover:bg-bronze-500 hover:text-forest-950 flex items-center space-x-1 transition">
-                                <i class="fa-solid fa-lightbulb"></i><span>KI-Insidertipps</span>
-                            </button>
                         </div>
                         <h2 id="detail-trip-title" class="font-display font-bold text-2xl text-neutral-100"></h2>
                         <div class="flex items-center space-x-3 text-[11px] text-neutral-400">
@@ -394,10 +391,6 @@
                 <h3 class="font-display font-bold text-base text-neutral-100 flex items-center space-x-2"><i class="fa-solid fa-image text-bronze-500"></i><span>Erinnerungsbild hinzufügen</span></h3>
                 <button onclick="closeActiveModal()" class="text-neutral-400 hover:text-neutral-200 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="flex border-b border-forest-900">
-                <button id="tab-btn-upload" onclick="switchPhotoTab('upload')" class="flex-1 py-2 text-center text-xs font-bold font-display border-b-2 border-bronze-500 text-bronze-500">Foto hochladen</button>
-                <button id="tab-btn-ai" onclick="switchPhotoTab('ai')" class="flex-1 py-2 text-center text-xs font-bold font-display border-b-2 border-transparent text-neutral-400 hover:text-neutral-200">KI Postkarte (Imagen 4)</button>
-            </div>
             <div id="photo-tab-upload" class="space-y-3">
                 <div class="border-2 border-dashed border-forest-900 hover:border-bronze-500/40 rounded-2xl p-6 text-center transition cursor-pointer relative" onclick="triggerFileInput()">
                     <input type="file" id="photo-input-file" accept="image/*" class="hidden" onchange="handleFileSelected(event)">
@@ -421,58 +414,9 @@
                 </div>
                 <input type="text" id="photo-caption-file" placeholder="Beschreibung für das Foto (optional)..." class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2 text-xs text-neutral-200 outline-none transition placeholder-neutral-600">
             </div>
-            <div id="photo-tab-ai" class="space-y-3 hidden">
-                <div class="space-y-1">
-                    <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block">Prompt (Beschreibung der Bildidee)</label>
-                    <textarea id="ai-photo-prompt" rows="2" placeholder="z. B. Ein malerisches Boot am Gardasee bei Sonnenuntergang, Aquarell-Stil" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl p-3 text-xs text-neutral-200 outline-none transition placeholder-neutral-600 resize-none"></textarea>
-                </div>
-                <div id="ai-photo-result-container" class="relative hidden bg-forest-950 rounded-2xl h-40 border border-forest-900 overflow-hidden flex items-center justify-center">
-                    <div id="ai-photo-loading" class="text-center space-y-2">
-                        <i class="fa-solid fa-circle-notch animate-spin text-2xl text-bronze-500"></i>
-                        <p class="text-[10px] text-neutral-400">Imagen 4.0 zeichnet dein Meisterwerk...</p>
-                    </div>
-                    <img id="ai-photo-result-img" class="hidden w-full h-full object-cover" alt="Generiertes Bild">
-                </div>
-                <button type="button" onclick="generateAIImage()" id="btn-ai-photo-generate" class="w-full py-2.5 bg-neutral-900 border border-bronze-500/20 hover:border-bronze-500 text-bronze-500 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
-                    <i class="fa-solid fa-wand-magic-sparkles text-xs"></i><span>KI-Postkarte malen</span>
-                </button>
-            </div>
             <div class="flex space-x-3 pt-2">
                 <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
                 <button onclick="savePhotoMemory()" class="flex-1 py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold shadow-lg shadow-bronze-600/20 hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">Speichern</button>
-            </div>
-        </div>
-
-        <!-- Modal: AI Travel Guide -->
-        <div id="modal-ai-guide" class="hidden bg-forest-900 border border-bronze-500/20 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative flex flex-col max-h-[85vh]">
-            <div class="flex items-center justify-between border-b border-forest-900 pb-3 shrink-0">
-                <h3 class="font-display font-bold text-base text-neutral-100 flex items-center space-x-2"><i class="fa-solid fa-robot text-bronze-500"></i><span>💡 KI-Insidertipps</span></h3>
-                <button onclick="closeActiveModal()" class="text-neutral-400 hover:text-neutral-200 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div id="ai-guide-output-container" class="flex-1 overflow-y-auto space-y-4 pr-1 min-h-[220px] max-h-[350px] text-xs leading-relaxed text-neutral-200">
-                <div class="bg-forest-950/30 border border-bronze-500/10 rounded-2xl p-4 text-center space-y-2">
-                    <p class="font-medium text-bronze-400">Dein ortskundiger Reiseführer wartet! 🌍</p>
-                    <p class="text-[10px] text-neutral-400 font-sans">Klicke unten auf ein Thema, um sofort maßgeschneiderte Tipps zu erkunden.</p>
-                </div>
-            </div>
-            <div id="ai-guide-sources" class="hidden bg-forest-950 border border-bronze-500/10 rounded-2xl p-3 space-y-1 shrink-0">
-                <span class="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Verwendete Quellen:</span>
-                <div id="ai-guide-sources-list" class="flex flex-wrap gap-1.5 max-h-[50px] overflow-y-auto"></div>
-            </div>
-            <div class="space-y-1.5 shrink-0">
-                <span class="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block">Schnellzugriff</span>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="askAICompanion('insider')" class="p-2.5 bg-forest-950 hover:bg-forest-900/60 border border-bronze-500/15 hover:border-bronze-500/40 rounded-xl text-[10px] text-neutral-300 text-left transition flex items-center space-x-1.5 font-medium"><span>✨ Finde Insider-Geheimtipps</span></button>
-                    <button onclick="askAICompanion('food')" class="p-2.5 bg-forest-950 hover:bg-forest-900/60 border border-bronze-500/15 hover:border-bronze-500/40 rounded-xl text-[10px] text-neutral-300 text-left transition flex items-center space-x-1.5 font-medium"><span>🍝 Gute Restaurants</span></button>
-                    <button onclick="askAICompanion('targets')" class="p-2.5 bg-forest-950 hover:bg-forest-900/60 border border-bronze-500/15 hover:border-bronze-500/40 rounded-xl text-[10px] text-neutral-300 text-left transition flex items-center space-x-1.5 font-medium"><span>🏛️ Sehenswerte Ziele</span></button>
-                    <button onclick="askAICompanion('packing')" class="p-2.5 bg-forest-950 hover:bg-forest-900/60 border border-bronze-500/15 hover:border-bronze-500/40 rounded-xl text-[10px] text-neutral-300 text-left transition flex items-center space-x-1.5 font-medium"><span>🎒 Smarte Packliste</span></button>
-                </div>
-            </div>
-            <div class="flex space-x-2 pt-2 border-t border-forest-900 shrink-0">
-                <input type="text" id="ai-guide-query" placeholder="Spezifische Frage stellen..." class="flex-1 bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-4 py-3 text-xs text-neutral-200 outline-none transition placeholder-neutral-600">
-                <button onclick="askAICompanion('custom')" id="btn-send-ai-guide" class="w-12 h-12 bg-gradient-to-r from-bronze-600 to-bronze-700 hover:scale-105 active:scale-95 text-forest-950 rounded-xl flex items-center justify-center shadow-lg shadow-bronze-600/15 transition">
-                    <i class="fa-solid fa-paper-plane text-xs text-forest-950"></i>
-                </button>
             </div>
         </div>
 
@@ -992,7 +936,7 @@
                 title.innerText = "Anekdote lesen";
                 content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>${authorLine}`;
             } else {
-                title.innerText = memory.isAI ? "🎨 KI Postkarte" : "📸 Foto";
+                title.innerText = "📸 Foto";
                 content.innerHTML = `<img src="${memory.image}" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 select-none" alt="Memory">${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}${authorLine}`;
             }
             window.showModal('modal-lightbox');
@@ -1017,143 +961,7 @@
             }
         };
 
-        window.openAIGuideModal = function() {
-            window.showModal('modal-ai-guide');
-            const trip = tripsList.find(t => t.id === activeTripId);
-            if (!trip) return;
-            const container = document.getElementById('ai-guide-output-container');
-            if (container) {
-                container.innerHTML = `<div class="bg-forest-950/30 border border-bronze-500/10 rounded-2xl p-4 text-center space-y-2"><p class="font-medium text-bronze-400">KI-Reisebegleiter für <span class="text-neutral-100 font-bold">${escapeHTML(trip.destination)}</span> 🌍</p><p class="text-[10px] text-neutral-400 font-sans">Klicke auf die Schnellzugriffe unten.</p></div>`;
-            }
-            document.getElementById('ai-guide-sources')?.classList.add('hidden');
-        };
-
-        window.askAICompanion = async function(type) {
-            const queryInput    = document.getElementById('ai-guide-query');
-            const container     = document.getElementById('ai-guide-output-container');
-            const sourcesBox    = document.getElementById('ai-guide-sources');
-            const sourcesList   = document.getElementById('ai-guide-sources-list');
-            const sendBtn       = document.getElementById('btn-send-ai-guide');
-            const trip          = tripsList.find(t => t.id === activeTripId);
-            if (!trip) { showToast("Kein aktiver Trip.", "error"); return; }
-
-            let userQuery = "", promptLabel = "";
-            if (type === 'custom') {
-                if (!queryInput?.value.trim()) return;
-                userQuery = promptLabel = queryInput.value.trim();
-                queryInput.value = "";
-            } else if (type === 'insider') {
-                userQuery = `Suche gezielt nach ungewöhnlichen Insider-Geheimtipps abseits der Touristenpfade für: ${trip.destination}.`;
-                promptLabel = "✨ Finde Insider-Geheimtipps";
-            } else if (type === 'food') {
-                userQuery = `4 hervorragende, authentische Restaurants in ${trip.destination}, von Einheimischen empfohlen.`;
-                promptLabel = "🍝 Gute Restaurants";
-            } else if (type === 'targets') {
-                userQuery = `Die 4 absolut sehenswertesten Ziele in ${trip.destination}.`;
-                promptLabel = "🏛️ Sehenswerte Ziele";
-            } else if (type === 'packing') {
-                userQuery = `Smarte Packliste für ${trip.destination}, Stil: ${trip.purpose}, Transport: ${trip.transport}.`;
-                promptLabel = "🎒 Smarte Packliste";
-            }
-
-            const userEl = document.createElement('div');
-            userEl.className = "bg-forest-950/60 border border-forest-900 rounded-2xl p-3 text-neutral-300 space-y-1 text-right ml-6";
-            userEl.innerHTML = `<span class="text-[9px] font-bold text-neutral-500 uppercase block">Deine Anfrage</span><p class="font-medium">${escapeHTML(promptLabel)}</p>`;
-            container.appendChild(userEl);
-            container.scrollTop = container.scrollHeight;
-
-            const typing = document.createElement('div');
-            typing.className = "bg-forest-950/20 border border-bronze-500/10 rounded-2xl p-4 mr-6 animate-pulse space-y-1";
-            typing.innerHTML = `<span class="text-[9px] font-bold text-bronze-500 uppercase block">Wanderlust KI-Guide</span><p class="text-neutral-400 italic flex items-center space-x-2"><i class="fa-solid fa-circle-notch animate-spin"></i><span>Gemini sucht...</span></p>`;
-            container.appendChild(typing);
-            container.scrollTop = container.scrollHeight;
-            if (sendBtn) sendBtn.disabled = true;
-
-            try {
-                const result = await runGeminiRequest({
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    systemInstruction: { parts: [{ text: `Du bist ein ortskundiger Reiseführer für '${trip.destination}'. Gib hilfreiche, authentische Tipps auf Deutsch. Strukturiere deine Antwort mit Titeln und Aufzählungspunkten.` }] },
-                    tools: [{ "google_search": {} }]
-                });
-                typing.remove();
-
-                const resEl = document.createElement('div');
-                resEl.className = "bg-forest-950/45 border border-bronze-500/15 rounded-2xl p-4 mr-6 space-y-2 leading-relaxed";
-                const fmt = escapeHTML(result.text)
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n[*-] (.*?)(?=\n|$)/g, '<br>• $1')
-                    .replace(/\n/g, '<br>');
-                resEl.innerHTML = `<span class="text-[9px] font-bold text-bronze-400 uppercase flex items-center space-x-1.5 mb-1"><i class="fa-solid fa-robot"></i><span>Wanderlust KI-Guide</span></span><div class="space-y-1.5 text-xs text-neutral-300">${fmt}</div>`;
-                container.appendChild(resEl);
-
-                if (result.sources?.length > 0) {
-                    sourcesBox?.classList.remove('hidden');
-                    if (sourcesList) {
-                        sourcesList.innerHTML = "";
-                        result.sources.slice(0, 4).forEach(src => {
-                            const a = document.createElement('a');
-                            a.href = src.uri; a.target = "_blank";
-                            a.className = "px-2 py-1 bg-forest-950 border border-forest-900 rounded-lg text-[9px] font-medium text-bronze-400 hover:text-bronze-300 transition flex items-center space-x-1";
-                            a.innerHTML = `<i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i><span>${escapeHTML(src.title.length > 18 ? src.title.slice(0, 15) + "..." : src.title)}</span>`;
-                            sourcesList.appendChild(a);
-                        });
-                    }
-                } else {
-                    sourcesBox?.classList.add('hidden');
-                }
-                container.scrollTop = container.scrollHeight;
-            } catch (err) {
-                typing.remove();
-                showToast("KI-Reisetipps konnten nicht geladen werden.", "error");
-            } finally {
-                if (sendBtn) sendBtn.disabled = false;
-            }
-        };
-
-        window.switchPhotoTab = function(tab) {
-            selectedPhotoTab = tab;
-            const up = tab === 'upload';
-            document.getElementById('tab-btn-upload')?.setAttribute('class', `flex-1 py-2 text-center text-xs font-bold font-display border-b-2 ${up ? 'border-bronze-500 text-bronze-500' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`);
-            document.getElementById('tab-btn-ai')?.setAttribute('class',     `flex-1 py-2 text-center text-xs font-bold font-display border-b-2 ${!up ? 'border-bronze-500 text-bronze-500' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`);
-            document.getElementById('photo-tab-upload')?.classList.toggle('hidden', !up);
-            document.getElementById('photo-tab-ai')?.classList.toggle('hidden', up);
-        };
-
-        let selectedPhotoTab = 'upload';
-        let generatedAIBase64 = null;
         let uploadedImageBase64 = null;
-
-        window.generateAIImage = async function() {
-            const prompt = document.getElementById('ai-photo-prompt')?.value.trim();
-            if (!prompt) { showToast("Bitte gib eine Bildidee ein!", "error"); return; }
-            const btn       = document.getElementById('btn-ai-photo-generate');
-            const container = document.getElementById('ai-photo-result-container');
-            const loading   = document.getElementById('ai-photo-loading');
-            const resultImg = document.getElementById('ai-photo-result-img');
-            if (btn) btn.disabled = true;
-            container?.classList.remove('hidden');
-            loading?.classList.remove('hidden');
-            resultImg?.classList.add('hidden');
-            try {
-                const apiKey = "";
-                const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ instances: [{ prompt }], parameters: { sampleCount: 1 } })
-                });
-                const data = await resp.json();
-                if (data.predictions?.[0]?.bytesBase64Encoded) {
-                    generatedAIBase64 = `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
-                    if (resultImg) { resultImg.src = generatedAIBase64; resultImg.classList.remove('hidden'); }
-                    loading?.classList.add('hidden');
-                } else throw new Error("No image returned");
-            } catch (err) {
-                showToast("Postkarten-Generierung fehlgeschlagen.", "error");
-                container?.classList.add('hidden');
-            } finally {
-                if (btn) btn.disabled = false;
-            }
-        };
 
         window.triggerFileInput = () => document.getElementById('photo-input-file')?.click();
         window.triggerCameraInput = () => document.getElementById('photo-input-camera')?.click();
@@ -1220,20 +1028,12 @@
         window.savePhotoMemory = async function() {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
-            let finalImage = null, finalCaption = "", isAI = false;
-            if (selectedPhotoTab === 'upload') {
-                if (!uploadedImageBase64) { showToast("Bitte wähle ein Foto aus!", "error"); return; }
-                finalImage   = uploadedImageBase64;
-                finalCaption = document.getElementById('photo-caption-file')?.value.trim() || "";
-            } else {
-                if (!generatedAIBase64) { showToast("Bitte generiere zuerst ein Bild!", "error"); return; }
-                finalImage   = generatedAIBase64;
-                finalCaption = document.getElementById('ai-photo-prompt')?.value.trim() || "";
-                isAI = true;
-            }
+            if (!uploadedImageBase64) { showToast("Bitte wähle zuerst ein Foto aus!", "error"); return; }
+            const finalImage   = uploadedImageBase64;
+            const finalCaption = document.getElementById('photo-caption-file')?.value.trim() || "";
 
             const memId = 'mem_' + Date.now();
-            const newMemory = { id: memId, type: 'photo', image: finalImage, text: finalCaption, isAI, author: activeUser?.displayName || 'Unbekannt', timestamp: Date.now() };
+            const newMemory = { id: memId, type: 'photo', image: finalImage, text: finalCaption, author: activeUser?.displayName || 'Unbekannt', timestamp: Date.now() };
 
             // Firebase Storage Upload versuchen. Schlägt er fehl (Storage nicht
             // eingerichtet, offline, Timeout), wird base64 als Fallback gespeichert –
@@ -1253,7 +1053,7 @@
 
             if (!trip.memories) trip.memories = [];
             trip.memories.push(newMemory);
-            uploadedImageBase64 = null; generatedAIBase64 = null;
+            uploadedImageBase64 = null;
             const prev = document.getElementById('upload-preview-img');
             if (prev) prev.classList.add('hidden');
             document.getElementById('upload-placeholder-content')?.classList.remove('hidden');
@@ -1902,7 +1702,7 @@
                 if (memory.type === 'note') {
                     el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">Gedanke${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
                 } else {
-                    el.innerHTML = `<img src="${memory.image}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">${memory.isAI ? '🎨 Imagen Postkarte' : '📸 Foto'}${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                    el.innerHTML = `<img src="${memory.image}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">📸 Foto${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
                 }
                 grid.appendChild(el);
             });
@@ -1918,31 +1718,6 @@
 
         function translateAuthError(code) {
             return { 'auth/invalid-credential': 'Ungültige Anmeldedaten.', 'auth/email-already-in-use': 'E-Mail bereits in Verwendung.', 'auth/weak-password': 'Passwort zu schwach (min. 6 Zeichen).', 'auth/invalid-email': 'Ungültiges E-Mail-Format.' }[code] || 'Ein Fehler ist aufgetreten.';
-        }
-
-        async function runGeminiRequest(payload) {
-            const apiKey = "";
-            const url    = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            let delay = 1000;
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const data = await res.json();
-                    const cand = data.candidates?.[0];
-                    if (cand?.content?.parts?.[0]?.text) {
-                        const text    = cand.content.parts[0].text;
-                        const sources = (cand.groundingMetadata?.groundingAttributions || [])
-                            .map(a => ({ uri: a.web?.uri, title: a.web?.title }))
-                            .filter(s => s.uri && s.title);
-                        return { text, sources };
-                    }
-                    throw new Error("No content");
-                } catch (err) {
-                    if (i === 4) throw err;
-                    await new Promise(r => setTimeout(r, delay)); delay *= 2;
-                }
-            }
         }
 
         function escapeHTML(str) {

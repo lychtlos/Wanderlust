@@ -1433,11 +1433,20 @@
 
         // ── PWA: Manifest dynamisch erzeugen (Single-File-App, kein separates manifest.json nötig) ──
         function setupPWA() {
-            // Service Worker registrieren – zweite Pflichtvoraussetzung neben dem
-            // Manifest, damit Chrome die App als echte (Fullscreen-)PWA installiert
-            // statt nur einen Browser-Shortcut anzulegen.
+            // Service Worker registrieren – Pflichtvoraussetzung für echte PWA-Installation.
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js').catch(err => {
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    // Bei jedem Start auf eine neuere SW-Version prüfen
+                    reg.update();
+                    // Übernimmt ein neuer Worker die Kontrolle, einmalig neu laden,
+                    // damit die frische App-Version sofort aktiv ist.
+                    let refreshing = false;
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        if (refreshing) return;
+                        refreshing = true;
+                        window.location.reload();
+                    });
+                }).catch(err => {
                     console.warn("Service Worker Registrierung fehlgeschlagen:", err);
                 });
             }
@@ -1501,25 +1510,10 @@
                 return;
             }
 
-            // Restore existing session first (resolves immediately if persisted)
-            await new Promise(resolve => {
-                let done = false;
-                const unsub = onAuthStateChanged(auth, user => {
-                    if (done) return;
-                    done = true; unsub();
-                    resolve(user);
-                });
-                // Safety timeout so we never block >3s
-                setTimeout(() => { if (!done) { done = true; unsub(); resolve(null); } }, 3000);
-            });
-
-            // Redirect-Handling entfernt: signInWithGoogle nutzt jetzt
-            // ausschließlich signInWithPopup (Third-Party-Cookie-sicher).
-            // Ein evtl. noch gesetztes altes Flag aufräumen:
+            // Altes Redirect-Flag aufräumen (signInWithGoogle nutzt nur noch Popup)
             sessionStorage.removeItem('wl_auth_in_progress');
 
-            // Invite-Hash sofort beim Laden in sessionStorage parken,
-            // bevor Firebase Auth den Hash potenziell wegräumt.
+            // Invite-Hash sofort parken, bevor er verloren geht
             const rawHash = window.location.hash;
             if (rawHash?.includes('inviteTrip=')) {
                 const m = rawHash.match(/inviteTrip=([^&]+)/);
@@ -1529,9 +1523,10 @@
                 }
             }
 
-            // FIX 4: Persistent auth state listener – single source of truth
+            // Einziger Auth-Listener = Single Source of Truth.
+            // Kein vorgeschalteter 3-Sekunden-await mehr – der verzögerte nur den Start.
+            let anonAttempted = false;
             onAuthStateChanged(auth, async (user) => {
-                // Tear down old subscription before doing anything else
                 if (firestoreUnsubscribe) { firestoreUnsubscribe(); firestoreUnsubscribe = null; }
 
                 if (user) {
@@ -1542,37 +1537,32 @@
                         email: user.email || '',
                         photoURL: user.photoURL
                     };
-
-                    // Subscription zuerst aufbauen
+                    updateUIState();
                     setupFirestoreSubscription();
 
                     if (!user.isAnonymous) {
-                        await migrateLocalDataToCloud(user.uid);
-                        // Invite nur für eingeloggte User verarbeiten –
-                        // anonyme UIDs sind flüchtig und würden den Trip
-                        // nach einem Reload wieder verlieren.
-                        await handleIncomingInviteLink(user.uid);
+                        migrateLocalDataToCloud(user.uid).catch(e => console.warn("Migration:", e));
+                        handleIncomingInviteLink(user.uid).catch(e => console.warn("Invite:", e));
                     } else {
-                        // Gast-User: Invite-Hinweis anzeigen und zum Login auffordern
                         const pendingInvite = sessionStorage.getItem('wl_pending_invite');
                         if (pendingInvite) {
                             showToast("Bitte melde dich an, um dem geteilten Trip beizutreten.", "info");
-                            // Profil-Modal öffnen damit der User sich einloggen kann
                             setTimeout(() => window.toggleProfileCenter(), 800);
                         }
                     }
                 } else {
-                    // No session at all – sign in anonymously for a local-only experience
+                    // Keine Session – einmalig anonym anmelden (nicht wiederholt)
+                    if (anonAttempted) { setGuestUserState(); updateUIState(); return; }
+                    anonAttempted = true;
                     try {
                         await signInAnonymously(auth);
-                        // onAuthStateChanged will fire again with the anon user
+                        // Listener feuert erneut mit dem anonymen User
                     } catch (e) {
-                        console.warn("Anonymous sign-in failed. Fully offline.", e);
+                        console.warn("Anonyme Anmeldung fehlgeschlagen:", e);
                         setGuestUserState();
                         updateUIState();
                     }
                 }
-                updateUIState();
             });
         }
 

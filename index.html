@@ -690,16 +690,24 @@
                 backdrop.classList.remove('hidden');
                 target.classList.remove('hidden');
                 activeModalId = modalId;
+                // History-Eintrag, damit der Zurück-Wisch erst das Modal schließt
+                history.pushState({ view: 'modal', modalId }, '');
             }
         };
 
-        window.closeActiveModal = function() {
+        window.closeActiveModal = function(fromPopstate) {
+            const wasOpen = !!activeModalId;
             const backdrop = document.getElementById('modal-backdrop');
             if (backdrop) {
                 backdrop.classList.add('hidden');
                 Array.from(backdrop.children).forEach(c => c.classList.add('hidden'));
             }
             activeModalId = null;
+            // Per Button geschlossen (nicht per Zurück-Geste)? Dann den Modal-
+            // History-Eintrag entfernen, damit Verlauf und Ansicht synchron bleiben.
+            if (!fromPopstate && wasOpen && history.state?.view === 'modal') {
+                history.back();
+            }
         };
 
         window.openNewTripModal = function() {
@@ -937,7 +945,7 @@
             }
         };
 
-        window.showTripDetailView = function(tripId) {
+        window.showTripDetailView = function(tripId, fromPopstate) {
             activeTripId = tripId;
             const trip = tripsList.find(t => t.id === tripId);
             if (!trip) return;
@@ -946,15 +954,28 @@
             if (btnLeft) { btnLeft.className = "flex flex-col items-center justify-center space-y-1 text-neutral-400 hover:text-bronze-500 transition-all"; btnLeft.onclick = window.showDashboardView; }
             document.getElementById('view-dashboard')?.classList.add('hidden');
             document.getElementById('view-trip-details')?.classList.remove('hidden');
+            // History-Eintrag pushen, damit der Zurück-Wisch/Button auf dem Handy
+            // zum Dashboard führt statt die App zu schließen. Nicht pushen, wenn der
+            // Aufruf selbst aus einem popstate stammt (sonst doppelte Einträge).
+            if (!fromPopstate) {
+                history.pushState({ view: 'trip', tripId }, '');
+            }
         };
 
-        window.showDashboardView = function() {
+        window.showDashboardView = function(fromPopstate) {
+            const wasInTrip = !!activeTripId;
             activeTripId = null;
             const btnLeft = document.getElementById('nav-btn-left');
             if (btnLeft) { btnLeft.className = "flex flex-col items-center justify-center space-y-1 text-bronze-500 transition-all"; btnLeft.onclick = window.showDashboardView; }
             document.getElementById('view-trip-details')?.classList.add('hidden');
             document.getElementById('view-dashboard')?.classList.remove('hidden');
             renderDashboardTrips();
+            // Wurde das Dashboard per Klick (nicht per Zurück-Geste) erreicht,
+            // den zuvor gepushten Trip-History-Eintrag wieder entfernen,
+            // damit Verlauf und Ansicht synchron bleiben.
+            if (!fromPopstate && wasInTrip && history.state?.view === 'trip') {
+                history.back();
+            }
         };
 
         window.openLightbox = function(memoryId) {
@@ -1490,6 +1511,30 @@
         });
 
         setupPWA();
+
+        // Zurück-Geste / Zurück-Button des Smartphones abfangen.
+        // Priorität: 1) offener Flashback-Player, 2) offenes Modal, 3) Trip → Dashboard.
+        window.addEventListener('popstate', (event) => {
+            // Flashback-Player offen? Erst den schließen.
+            const player = document.getElementById('flashback-player');
+            if (player && !player.classList.contains('hidden')) {
+                window.closeFlashback?.();
+                history.pushState({ view: activeTripId ? 'trip' : 'dashboard' }, '');
+                return;
+            }
+            // Modal offen? Erst das schließen.
+            if (activeModalId) {
+                window.closeActiveModal(true); // fromPopstate = true
+                history.pushState({ view: activeTripId ? 'trip' : 'dashboard' }, '');
+                return;
+            }
+            // In einem Trip? Zurück führt zum Dashboard (nicht aus der App).
+            if (activeTripId) {
+                window.showDashboardView(true); // fromPopstate = true
+                return;
+            }
+            // Auf dem Dashboard: normalen Zurück-Schritt zulassen (App verlassen).
+        });
 
         // FIX 3: Guest state without touching localStorage
         function setGuestUserState() {

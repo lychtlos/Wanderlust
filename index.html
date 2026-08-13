@@ -941,9 +941,91 @@
                 content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>${authorLine}`;
             } else {
                 title.innerText = "📸 Foto";
-                content.innerHTML = `<img src="${memory.image}" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 select-none" alt="Memory">${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}${authorLine}`;
+                // Bild: Klick öffnet Vollbild. Darunter ein Download-Button.
+                content.innerHTML = `
+                    <img src="${memory.image}" onclick="openFullscreenImage('${memory.id}')" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 cursor-zoom-in" alt="Memory">
+                    ${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}
+                    ${authorLine}
+                    <div class="flex gap-2 w-full pt-2">
+                        <button onclick="openFullscreenImage('${memory.id}')" class="flex-1 py-2.5 bg-forest-950 border border-forest-900 hover:border-bronze-500/40 text-neutral-300 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-expand text-xs text-bronze-500"></i><span>Vollbild</span>
+                        </button>
+                        <button onclick="downloadMemoryImage('${memory.id}')" class="flex-1 py-2.5 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-download text-xs"></i><span>Herunterladen</span>
+                        </button>
+                    </div>`;
             }
             window.showModal('modal-lightbox');
+        };
+
+        // Öffnet ein Bild im echten Vollbild-Overlay (ganze Bildschirmfläche).
+        window.openFullscreenImage = function(memoryId) {
+            const trip = tripsList.find(t => t.id === activeTripId);
+            const memory = trip?.memories?.find(m => m.id === memoryId);
+            if (!memory?.image) return;
+            let overlay = document.getElementById('fullscreen-image-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'fullscreen-image-overlay';
+                overlay.className = 'fixed inset-0 bg-black z-[60] hidden flex items-center justify-center';
+                overlay.innerHTML = `
+                    <button onclick="closeFullscreenImage()" class="absolute top-4 right-4 w-11 h-11 rounded-full bg-forest-950/70 border border-forest-900 text-neutral-200 hover:text-white flex items-center justify-center z-10 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    <button id="fs-download-btn" class="absolute bottom-5 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold font-display uppercase tracking-wider shadow-lg flex items-center space-x-1.5 z-10"><i class="fa-solid fa-download"></i><span>Herunterladen</span></button>
+                    <img id="fs-image" class="max-w-full max-h-full object-contain select-none" alt="Vollbild">`;
+                document.body.appendChild(overlay);
+                // Tippen auf den Hintergrund schließt das Vollbild
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay || e.target.id === 'fs-image') closeFullscreenImage();
+                });
+            }
+            document.getElementById('fs-image').src = memory.image;
+            document.getElementById('fs-download-btn').onclick = () => downloadMemoryImage(memoryId);
+            overlay.classList.remove('hidden');
+            // History-Eintrag, damit die Zurück-Geste erst das Vollbild schließt
+            history.pushState({ view: 'fullscreen' }, '');
+        };
+
+        window.closeFullscreenImage = function(fromPopstate) {
+            const overlay = document.getElementById('fullscreen-image-overlay');
+            if (!overlay || overlay.classList.contains('hidden')) return;
+            overlay.classList.add('hidden');
+            if (!fromPopstate && history.state?.view === 'fullscreen') history.back();
+        };
+
+        // Lädt ein Bild herunter. Für Firebase-Storage-URLs wird das Bild als Blob
+        // geholt, damit der Browser wirklich speichert statt es nur zu öffnen.
+        window.downloadMemoryImage = async function(memoryId) {
+            const trip = tripsList.find(t => t.id === activeTripId);
+            const memory = trip?.memories?.find(m => m.id === memoryId);
+            if (!memory?.image) return;
+            const filename = `wanderlust_${(trip.name || trip.destination || 'foto').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${memoryId}.jpg`;
+            try {
+                let blobUrl;
+                if (memory.image.startsWith('data:')) {
+                    // base64 direkt als Download
+                    blobUrl = memory.image;
+                } else {
+                    // Storage-URL: als Blob laden, damit der Browser speichert statt öffnet
+                    showToast("Bild wird vorbereitet...", "info");
+                    const res = await fetch(memory.image);
+                    const blob = await res.blob();
+                    blobUrl = URL.createObjectURL(blob);
+                }
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                if (!memory.image.startsWith('data:')) {
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                }
+                showToast("Bild gespeichert! 📥", "success");
+            } catch (e) {
+                console.warn("Download fehlgeschlagen, öffne stattdessen:", e);
+                // Fallback: Bild in neuem Tab öffnen (dann manuell speichern)
+                window.open(memory.image, '_blank');
+            }
         };
 
         window.deleteMemory = async function(memoryId) {
@@ -1319,6 +1401,13 @@
         // Zurück-Geste / Zurück-Button des Smartphones abfangen.
         // Priorität: 1) offener Flashback-Player, 2) offenes Modal, 3) Trip → Dashboard.
         window.addEventListener('popstate', (event) => {
+            // Vollbild-Bild offen? Zuerst das schließen.
+            const fsOverlay = document.getElementById('fullscreen-image-overlay');
+            if (fsOverlay && !fsOverlay.classList.contains('hidden')) {
+                window.closeFullscreenImage(true);
+                history.pushState({ view: activeModalId ? 'modal' : (activeTripId ? 'trip' : 'dashboard') }, '');
+                return;
+            }
             // Flashback-Player offen? Erst den schließen.
             const player = document.getElementById('flashback-player');
             if (player && !player.classList.contains('hidden')) {

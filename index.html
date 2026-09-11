@@ -379,9 +379,15 @@
                 <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block">Deine Notiz / Anekdote</label>
                 <textarea id="text-memory-content" rows="5" placeholder="z.B. Das kleine Restaurant am Hafen hatte fantastischen Fisch..." class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl p-3 text-xs text-neutral-200 outline-none transition placeholder-neutral-600 resize-none"></textarea>
             </div>
-            <div class="flex space-x-3 pt-2">
-                <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
-                <button onclick="saveTextMemory()" class="flex-1 py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold shadow-lg shadow-bronze-600/20 hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">Speichern</button>
+            <div class="space-y-2 pt-2">
+                <!-- Speichern & weitere: Feld wird geleert, Fenster bleibt offen -->
+                <button onclick="saveTextMemory(true)" class="w-full py-2.5 bg-forest-950 border border-bronze-500/25 hover:border-bronze-500/50 text-bronze-400 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-plus text-xs"></i><span>Speichern & weitere Notiz</span>
+                </button>
+                <div class="flex space-x-3">
+                    <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
+                    <button onclick="saveTextMemory()" class="flex-1 py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold shadow-lg shadow-bronze-600/20 hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">Speichern</button>
+                </div>
             </div>
         </div>
 
@@ -605,6 +611,7 @@
         let firestoreUnsubscribe = null;
         let tempStartCoords = null;
         let tempDestCoords = null;
+        let uploadedImageBase64 = null;
 
         // ── Flashback state ─────────────────────────────────────────────
         let flashbackSlides = [];
@@ -632,6 +639,18 @@
         // ── Modal helpers ────────────────────────────────────────────────
         window.showModal = function(modalId) {
             closeActiveModal();
+            // Eingabefelder beim Öffnen leeren, damit immer frisch gestartet wird
+            if (modalId === 'modal-add-memory-text') {
+                const f = document.getElementById('text-memory-content');
+                if (f) f.value = '';
+            }
+            if (modalId === 'modal-add-memory-photo') {
+                uploadedImageBase64 = null;
+                const c = document.getElementById('photo-caption-file');
+                if (c) c.value = '';
+                document.getElementById('upload-preview-img')?.classList.add('hidden');
+                document.getElementById('upload-placeholder-content')?.classList.remove('hidden');
+            }
             const backdrop = document.getElementById('modal-backdrop');
             const target = document.getElementById(modalId);
             if (backdrop && target) {
@@ -1047,8 +1066,6 @@
             }
         };
 
-        let uploadedImageBase64 = null;
-
         window.triggerFileInput = () => document.getElementById('photo-input-file')?.click();
         window.triggerCameraInput = () => document.getElementById('photo-input-camera')?.click();
 
@@ -1076,8 +1093,9 @@
             reader.readAsDataURL(file);
         };
 
-        window.saveTextMemory = async function() {
-            const content = document.getElementById('text-memory-content')?.value.trim();
+        window.saveTextMemory = async function(keepOpen) {
+            const field = document.getElementById('text-memory-content');
+            const content = field?.value.trim();
             if (!content) { showToast("Bitte schreibe eine Anekdote!", "error"); return; }
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
@@ -1086,8 +1104,15 @@
             trip.memories.push(newMem);
             saveTripsToLocalStorage();
             renderTripMemoriesGrid();
-            showToast("Anekdote hinzugefügt!", "success");
-            window.closeActiveModal();
+            // Feld leeren, damit direkt die nächste Notiz geschrieben werden kann
+            if (field) field.value = '';
+            if (keepOpen) {
+                showToast("Notiz gespeichert – schreib die nächste! ✍️", "success");
+                field?.focus();
+            } else {
+                showToast("Anekdote hinzugefügt!", "success");
+                window.closeActiveModal();
+            }
             if (firebaseAvailable && db && auth.currentUser) {
                 updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId), { memories: trip.memories })
                     .catch(e => console.error("Cloud note save failed:", e));
@@ -1143,6 +1168,13 @@
             const prev = document.getElementById('upload-preview-img');
             if (prev) prev.classList.add('hidden');
             document.getElementById('upload-placeholder-content')?.classList.remove('hidden');
+            // Eingaben zurücksetzen, damit direkt das nächste Foto hinzugefügt werden kann
+            const captionField = document.getElementById('photo-caption-file');
+            if (captionField) captionField.value = '';
+            const fileInput = document.getElementById('photo-input-file');
+            if (fileInput) fileInput.value = '';
+            const camInput = document.getElementById('photo-input-camera');
+            if (camInput) camInput.value = '';
             saveTripsToLocalStorage();
             renderTripMemoriesGrid();
             showToast("Erinnerungsbild gespeichert! 📸", "success");

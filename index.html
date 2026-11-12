@@ -362,9 +362,9 @@
         <div id="modal-confirm-delete" class="hidden bg-forest-900 border border-rose-500/20 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative">
             <div class="flex items-center space-x-3 text-rose-500 pb-2 border-b border-forest-900">
                 <i class="fa-solid fa-triangle-exclamation text-xl"></i>
-                <h3 class="font-display font-bold text-base text-neutral-100">Abenteuer löschen?</h3>
+                <h3 id="delete-trip-title" class="font-display font-bold text-base text-neutral-100">Abenteuer löschen?</h3>
             </div>
-            <p class="text-xs text-neutral-300 leading-relaxed">Möchtest du das Abenteuer <strong id="delete-trip-dest-name"></strong> und alle Pinnwand-Einträge wirklich unwiderruflich löschen?</p>
+            <p class="text-xs text-neutral-300 leading-relaxed"><strong id="delete-trip-dest-name"></strong><span id="delete-trip-text"></span></p>
             <div class="flex space-x-3 pt-2">
                 <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
                 <button id="btn-execute-delete" class="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 transition font-display uppercase tracking-wider">Löschen</button>
@@ -572,7 +572,7 @@
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import {
             getFirestore, collection, doc, setDoc, getDoc, onSnapshot,
-            updateDoc, deleteDoc, arrayUnion,
+            updateDoc, deleteDoc, arrayUnion, arrayRemove, runTransaction,
             // FIX 1: Import query and where for proper server-side filtering
             query, where
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -614,6 +614,7 @@
         let tempStartCoords = null;
         let tempDestCoords = null;
         let uploadedImageBase64 = null;
+        let silentPops = 0;           // zählt selbst ausgelöste Verlaufs-Schritte (kein Nutzer-"Zurück")
         let editingMemoryId = null;   // gesetzt, wenn eine Notiz/Bildbeschreibung bearbeitet wird
 
         // ── Flashback state ─────────────────────────────────────────────
@@ -638,6 +639,15 @@
             'Fahrrad': '<i class="fa-solid fa-bicycle text-bronze-500"></i>',
             'Fuss': '<i class="fa-solid fa-person-walking text-bronze-500"></i>'
         };
+
+        // Verlauf per Code zurücksetzen, ohne dass der popstate-Handler es als
+        // Zurück-Geste des Nutzers wertet (sonst springt die Ansicht zum Dashboard).
+        function silentHistoryGo(delta) {
+            silentPops++;
+            history.go(delta);
+            // Sicherheitsnetz, falls der Browser kein popstate liefert
+            setTimeout(() => { if (silentPops > 0) silentPops--; }, 1000);
+        }
 
         // ── Modal helpers ────────────────────────────────────────────────
         window.showModal = function(modalId) {
@@ -681,7 +691,7 @@
             // Per Button geschlossen (nicht per Zurück-Geste)? Dann den Modal-
             // History-Eintrag entfernen, damit Verlauf und Ansicht synchron bleiben.
             if (!fromPopstate && wasOpen && history.state?.view === 'modal') {
-                history.back();
+                silentHistoryGo(-1);
             }
         };
 
@@ -732,7 +742,13 @@
         window.confirmDeleteTrip = function() {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
+            const owner = isTripOwner(trip);
             document.getElementById('delete-trip-dest-name').innerText = trip.name || trip.destination;
+            document.getElementById('delete-trip-title').innerText = owner ? 'Abenteuer löschen?' : 'Abenteuer verlassen?';
+            document.getElementById('delete-trip-text').innerText = owner
+                ? ' wird mit allen Pinnwand-Einträgen unwiderruflich gelöscht – auch für alle Mitreisenden.'
+                : ' verschwindet aus deiner Liste. Für die anderen bleibt der Trip mit allen Einträgen erhalten.';
+            document.getElementById('btn-execute-delete').innerText = owner ? 'Löschen' : 'Verlassen';
             window.showModal('modal-confirm-delete');
         };
 
@@ -740,14 +756,24 @@
             if (!activeTripId) return;
             const idToDelete = activeTripId;
             const tripToDelete = tripsList.find(t => t.id === idToDelete);
+            const owner = isTripOwner(tripToDelete);
             tripsList = tripsList.filter(t => t.id !== idToDelete);
             saveTripsToLocalStorage();
             // Modal- und Trip-Eintrag gemeinsam aus dem Verlauf nehmen
             const steps = (history.state?.view === 'modal') ? -2 : 0;
             window.closeActiveModal(true);
-            showToast("Abenteuer gelöscht.", "success");
+            showToast(owner ? "Abenteuer gelöscht." : "Abenteuer verlassen.", "success");
             window.showDashboardView(true);
-            if (steps) history.go(steps);
+            if (steps) silentHistoryGo(steps);
+
+            // Mitglied (nicht Besitzer): nur sich selbst austragen, nichts löschen
+            if (!owner) {
+                if (firebaseAvailable && db && auth.currentUser) {
+                    updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', idToDelete), { members: arrayRemove(auth.currentUser.uid) })
+                        .catch(e => console.error("Trip verlassen fehlgeschlagen:", e));
+                }
+                return;
+            }
 
             if (firebaseAvailable && db && auth.currentUser) {
                 deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', idToDelete))
@@ -860,6 +886,10 @@
             try {
                 if (firestoreUnsubscribe) { firestoreUnsubscribe(); firestoreUnsubscribe = null; }
                 tripsList = [];
+                // Cache leeren: Kontodaten liegen in der Cloud. Sonst könnten sie auf einem
+                // geteilten Gerät dem nächsten Konto zugeordnet werden.
+                localStorage.removeItem('wanderlust_trips_cache');
+                localStorage.removeItem('wl_guest_uid');
                 renderDashboardTrips();
                 await signOut(auth);
                 showToast("Erfolgreich abgemeldet.", "info");
@@ -878,6 +908,11 @@
             const dateEnd     = document.getElementById('trip-date-end').value;
             const purpose     = document.querySelector('input[name="trip-purpose"]:checked')?.value || 'Urlaub';
             const transport   = document.querySelector('input[name="trip-transport"]:checked')?.value || 'Auto';
+
+            if (dateStart && dateEnd && dateEnd < dateStart) {
+                showToast("Das Enddatum liegt vor dem Startdatum.", "error");
+                return;
+            }
 
             // Normalise coord shapes (array or object)
             const normalise = (c) => {
@@ -943,7 +978,13 @@
             // veralteter lokaler Stand keine Mitglieder aus dem Trip werfen.
             if (firebaseAvailable && db && auth.currentUser) {
                 setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', id),
-                    { ...payload, members: arrayUnion(...members) }, { merge: true })
+                    (() => {
+                        const cloud = { ...payload, members: arrayUnion(...members) };
+                        // Beim Bearbeiten die Pinnwand nicht mitschicken: der lokale Stand kann
+                        // älter sein als der in der Cloud und würde Einträge anderer überschreiben.
+                        if (existing) delete cloud.memories;
+                        return cloud;
+                    })(), { merge: true })
                     .catch(e => console.error("Firestore save failed:", e));
             }
         };
@@ -977,7 +1018,7 @@
             // den zuvor gepushten Trip-History-Eintrag wieder entfernen,
             // damit Verlauf und Ansicht synchron bleiben.
             if (!fromPopstate && wasInTrip && history.state?.view === 'trip') {
-                history.back();
+                silentHistoryGo(-1);
             }
         };
 
@@ -1002,7 +1043,7 @@
                 title.innerText = "📸 Foto";
                 // Bild: Klick öffnet Vollbild. Darunter ein Download-Button.
                 content.innerHTML = `
-                    <img src="${memory.image}" onclick="openFullscreenImage('${memory.id}')" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 cursor-zoom-in" alt="Memory">
+                    <img src="${escapeHTML(memory.image)}" onclick="openFullscreenImage('${memory.id}')" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 cursor-zoom-in" alt="Memory">
                     ${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}
                     ${authorLine}
                     <div class="flex gap-2 w-full pt-2">
@@ -1049,7 +1090,7 @@
             const overlay = document.getElementById('fullscreen-image-overlay');
             if (!overlay || overlay.classList.contains('hidden')) return;
             overlay.classList.add('hidden');
-            if (!fromPopstate && history.state?.view === 'fullscreen') history.back();
+            if (!fromPopstate && history.state?.view === 'fullscreen') silentHistoryGo(-1);
         };
 
         // Lädt ein Bild herunter. Für Firebase-Storage-URLs wird das Bild als Blob
@@ -1092,13 +1133,18 @@
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
             const memToDelete = (trip.memories || []).find(m => m.id === memoryId);
+            if (!memToDelete) return;
+            if (!canEditMemory(trip, memToDelete) && !isTripOwner(trip)) {
+                showToast("Nur der Ersteller oder der Trip-Besitzer kann diesen Eintrag löschen.", "info");
+                return;
+            }
+            if (!confirm(memToDelete.type === 'photo' ? 'Dieses Foto wirklich löschen?' : 'Diese Notiz wirklich löschen?')) return;
             trip.memories = (trip.memories || []).filter(m => m.id !== memoryId);
             saveTripsToLocalStorage();
             renderTripMemoriesGrid();
             showToast("Erinnerung gelöscht.", "info");
             if (firebaseAvailable && db && auth.currentUser) {
-                updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId), { memories: trip.memories })
-                    .catch(e => console.error("Cloud memory deletion failed:", e));
+                syncMemoryChange(trip.id, arr => arr.filter(m => m.id !== memoryId), trip.memories);
                 // Zugehörige Storage-Datei mit löschen (Fire & Forget)
                 if (memToDelete?.storagePath && storage) {
                     deleteObject(storageRef(storage, memToDelete.storagePath))
@@ -1118,17 +1164,18 @@
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    const maxDim = 800;
+                    const maxDim = 1600;
                     let w = img.width, h = img.height;
                     if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
                     else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
                     canvas.width = w; canvas.height = h;
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    uploadedImageBase64 = canvas.toDataURL('image/jpeg', 0.75);
+                    uploadedImageBase64 = canvas.toDataURL('image/jpeg', 0.8);
                     document.getElementById('upload-placeholder-content')?.classList.add('hidden');
                     const prev = document.getElementById('upload-preview-img');
                     if (prev) { prev.src = uploadedImageBase64; prev.classList.remove('hidden'); }
                 };
+                img.onerror = () => showToast("Dieses Bildformat kann der Browser nicht lesen. Bitte JPG oder PNG wählen.", "error");
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
@@ -1137,6 +1184,11 @@
         // Darf der aktuelle Nutzer diesen Eintrag bearbeiten? Nur der Ersteller.
         // Neue Einträge tragen eine authorId. Ältere haben nur den Namen – dort zählt
         // der Namensabgleich; ganz alte ohne Autor darf der Trip-Besitzer bearbeiten.
+        // Trips ohne gespeicherten Besitzer (sehr alt) gelten als eigene.
+        function isTripOwner(trip) {
+            return !!activeUser && (!trip?.ownerId || trip.ownerId === activeUser.uid);
+        }
+
         function canEditMemory(trip, memory) {
             if (!activeUser || !memory) return false;
             if (memory.authorId) return memory.authorId === activeUser.uid;
@@ -1186,10 +1238,8 @@
                 renderTripMemoriesGrid();
                 showToast("Änderung gespeichert. ✍️", "success");
                 window.closeActiveModal();
-                if (firebaseAvailable && db && auth.currentUser) {
-                    updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId), { memories: trip.memories })
-                        .catch(e => console.error("Cloud memory edit failed:", e));
-                }
+                const editedId = memory.id, editedText = memory.text, editedAt = memory.editedAt;
+                syncMemoryChange(trip.id, arr => arr.map(m => m.id === editedId ? { ...m, text: editedText, editedAt } : m), trip.memories);
                 return;
             }
 
@@ -1208,10 +1258,7 @@
                 showToast("Anekdote hinzugefügt!", "success");
                 window.closeActiveModal();
             }
-            if (firebaseAvailable && db && auth.currentUser) {
-                updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId), { memories: trip.memories })
-                    .catch(e => console.error("Cloud note save failed:", e));
-            }
+            syncMemoryChange(trip.id, arr => arr.some(m => m.id === newMem.id) ? arr : [...arr, newMem], trip.memories);
         };
 
         // Lädt ein base64-Bild zu Firebase Storage hoch und gibt { url, path } zurück.
@@ -1277,13 +1324,7 @@
 
             // Firestore-Sync ebenfalls abgesichert: base64-Bilder >1 MiB würden das
             // Dokumentlimit sprengen – dann greift der catch und die App bleibt nutzbar.
-            if (firebaseAvailable && db && auth.currentUser) {
-                updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId), { memories: trip.memories })
-                    .catch(e => {
-                        console.error("Cloud photo save failed:", e);
-                        showToast("Foto lokal gespeichert, Cloud-Sync fehlgeschlagen.", "info");
-                    });
-            }
+            syncMemoryChange(trip.id, arr => arr.some(m => m.id === newMemory.id) ? arr : [...arr, newMemory], trip.memories);
         };
 
         window.shareTripInvite = function() {
@@ -1524,11 +1565,12 @@
         // Zurück-Geste / Zurück-Button des Smartphones abfangen.
         // Priorität: 1) offener Flashback-Player, 2) offenes Modal, 3) Trip → Dashboard.
         window.addEventListener('popstate', (event) => {
+            // Vom Code selbst ausgelöst (Fenster per Button geschlossen)? Dann nichts tun.
+            if (silentPops > 0) { silentPops--; return; }
             // Vollbild-Bild offen? Zuerst das schließen.
             const fsOverlay = document.getElementById('fullscreen-image-overlay');
             if (fsOverlay && !fsOverlay.classList.contains('hidden')) {
-                window.closeFullscreenImage(true);
-                history.pushState({ view: activeModalId ? 'modal' : (activeTripId ? 'trip' : 'dashboard') }, '');
+                window.closeFullscreenImage(true);   // eigener Verlaufseintrag ist durch "Zurück" schon weg
                 return;
             }
             // Flashback-Player offen? Erst den schließen.
@@ -1540,8 +1582,7 @@
             }
             // Modal offen? Erst das schließen.
             if (activeModalId) {
-                window.closeActiveModal(true); // fromPopstate = true
-                history.pushState({ view: activeTripId ? 'trip' : 'dashboard' }, '');
+                window.closeActiveModal(true); // eigener Verlaufseintrag ist durch "Zurück" schon weg
                 return;
             }
             // In einem Trip? Zurück führt zum Dashboard (nicht aus der App).
@@ -1600,6 +1641,8 @@
                     };
                     updateUIState();
                     setupFirestoreSubscription();
+                    // Gast-ID merken: nur Trips dieser Gast-Sitzung werden später ins Konto übernommen
+                    if (user.isAnonymous) localStorage.setItem('wl_guest_uid', user.uid);
 
                     if (!user.isAnonymous) {
                         migrateLocalDataToCloud(user.uid).catch(e => console.warn("Migration:", e));
@@ -1725,26 +1768,34 @@
             // oder eine fremde ownerId bei der der User NICHT im members-Array steht
             // (= verwaiste anonyme Session). Geteilte Trips (User ist member) NIEMALS
             // anfassen – sonst wird die Mitgliederliste zerstört!
-            const toMigrate = localTrips.filter(t => {
-                if (!t.ownerId || t.ownerId === 'local_guest') return true;   // echter Gast-Trip
-                if (t.ownerId === userUid) return false;                       // gehört mir schon
-                if ((t.members || []).includes(userUid)) return false;         // geteilter Trip – NICHT anfassen
-                return true;                                                   // verwaiste anonyme Session
-            });
+            // Nur Trips der eigenen Gast-Sitzung übernehmen (oder solche ganz ohne Besitzer).
+            const guestUid = localStorage.getItem('wl_guest_uid');
+            const toMigrate = localTrips.filter(t =>
+                !t.ownerId || t.ownerId === 'local_guest' || (guestUid && t.ownerId === guestUid));
+            localStorage.removeItem('wl_guest_uid');
             if (!toMigrate.length) return;
 
+            let moved = 0;
             for (const trip of toMigrate) {
-                const id = trip.id || ('trip_' + Date.now() + Math.floor(Math.random() * 1000));
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', id), {
-                    ...trip,
-                    id,
-                    ownerId:   userUid,
-                    members:   [userUid],
-                    timestamp: trip.timestamp || Date.now()
-                }, { merge: true }).catch(e => console.error("Migration of trip failed:", e));
+                // Als NEUES Dokument anlegen: das alte gehört der Gast-ID, darauf hat das
+                // Konto laut Sicherheitsregeln keinen Schreibzugriff.
+                const id = 'trip_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+                const memories = (trip.memories || []).map(m =>
+                    (!m.authorId || m.authorId === guestUid || m.authorId === 'local_guest')
+                        ? { ...m, authorId: userUid, author: activeUser?.displayName || m.author } : m);
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', id), {
+                        ...trip, id, memories,
+                        ownerId:   userUid,
+                        members:   [userUid],
+                        timestamp: trip.timestamp || Date.now()
+                    });
+                    moved++;
+                    // Altes Gast-Dokument entfernen, falls die Regeln es zulassen
+                    if (trip.id) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', trip.id)).catch(() => {});
+                } catch (e) { console.error("Migration of trip failed:", e); }
             }
-            // Clear local cache – Firestore subscription will repopulate it
-            localStorage.removeItem('wanderlust_trips_cache');
+            if (moved) showToast(`${moved} ${moved === 1 ? 'Gast-Trip' : 'Gast-Trips'} in dein Konto übernommen.`, "success");
         }
 
         // ── Ortssuche (Photon / OpenStreetMap) ───────────────────────────
@@ -1938,7 +1989,38 @@
         }
 
         function saveTripsToLocalStorage() {
-            localStorage.setItem('wanderlust_trips_cache', JSON.stringify(tripsList));
+            try {
+                localStorage.setItem('wanderlust_trips_cache', JSON.stringify(tripsList));
+            } catch (e) {
+                // Speicher voll (meist alte, eingebettete base64-Fotos): Cache ohne diese Bilder
+                // ablegen. Die Daten selbst liegen weiter im Arbeitsspeicher und in der Cloud.
+                try {
+                    const slim = tripsList.map(t => ({ ...t, memories: (t.memories || []).map(m =>
+                        (typeof m.image === 'string' && m.image.startsWith('data:')) ? { ...m, image: '' } : m) }));
+                    localStorage.setItem('wanderlust_trips_cache', JSON.stringify(slim));
+                } catch (e2) { console.warn("Lokaler Cache konnte nicht geschrieben werden:", e2); }
+            }
+        }
+
+        // Ändert die Pinnwand eines Trips in der Cloud. Die Änderung wird in einer Transaktion
+        // auf den aktuellen Server-Stand angewendet – so überschreiben sich zwei Personen,
+        // die gleichzeitig etwas hinzufügen, nicht gegenseitig. Offline: normaler Schreibvorgang.
+        async function syncMemoryChange(tripId, mutate, localMemories) {
+            if (!(firebaseAvailable && db && auth.currentUser)) return;
+            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'trips', tripId);
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error('Trip existiert nicht mehr');
+                    tx.update(ref, { memories: mutate([...(snap.data().memories || [])]) });
+                });
+            } catch (e) {
+                console.warn("Transaktion nicht möglich, schreibe direkt:", e);
+                updateDoc(ref, { memories: localMemories }).catch(err => {
+                    console.error("Cloud-Sync der Pinnwand fehlgeschlagen:", err);
+                    showToast("Lokal gespeichert, Cloud-Sync fehlgeschlagen.", "info");
+                });
+            }
         }
 
         function updateUIState() {
@@ -2025,7 +2107,7 @@
 
         function updateTripDetailDOM(trip) {
             document.getElementById('detail-trip-transport').innerHTML = transportIcons[trip.transport] || transportIcons['Auto'];
-            document.getElementById('detail-trip-purpose').innerHTML   = `${purposeIcons[trip.purpose] || purposeIcons['Sonstiges']} <span class="ml-1">${trip.purpose}</span>`;
+            document.getElementById('detail-trip-purpose').innerHTML   = `${purposeIcons[trip.purpose] || purposeIcons['Sonstiges']} <span class="ml-1">${escapeHTML(trip.purpose)}</span>`;
             document.getElementById('detail-trip-title').innerText     = trip.name || trip.destination;
             document.getElementById('detail-trip-start').innerText     = `${trip.origin || 'Heimatort'} ➔ ${trip.destination || ''}`;
             document.getElementById('detail-trip-dates').innerText     = `${formatGermanDate(trip.dateStart)} – ${formatGermanDate(trip.dateEnd)}`;
@@ -2045,13 +2127,16 @@
                 const el = document.createElement('div');
                 el.className = "break-inside-avoid bg-forest-900/20 border border-forest-900/40 hover:border-bronze-500/30 rounded-2xl overflow-hidden p-3 space-y-2 mb-3 shadow-md relative cursor-pointer transition duration-155 hover:scale-[1.01]";
                 el.onclick = e => { if (e.target.closest('button')) return; window.openLightbox(memory.id); };
+                const delBtn = (canEditMemory(trip, memory) || isTripOwner(trip))
+                    ? `<button onclick="window.deleteMemory('${memory.id}')" title="Löschen" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button>`
+                    : '';
                 const editBtn = canEditMemory(trip, memory)
                     ? `<button onclick="window.openEditMemory('${memory.id}')" title="Bearbeiten" class="text-neutral-500 hover:text-bronze-400 text-[10px] transition"><i class="fa-solid fa-pen"></i></button>`
                     : '';
                 if (memory.type === 'note') {
-                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">Gedanke${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}<button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></span></div>`;
+                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">Gedanke${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}${delBtn}</span></div>`;
                 } else {
-                    el.innerHTML = `<img src="${memory.image}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">📸 Foto${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}<button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></span></div>`;
+                    el.innerHTML = `<img src="${escapeHTML(memory.image)}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">📸 Foto${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}${delBtn}</span></div>`;
                 }
                 grid.appendChild(el);
             });
@@ -2070,8 +2155,8 @@
         }
 
         function escapeHTML(str) {
-            if (!str) return '';
-            return str.replace(/[&<>'"]/g, t => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[t] || t));
+            if (str === null || str === undefined || str === '') return '';
+            return String(str).replace(/[&<>'"]/g, t => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[t] || t));
         }
 
         function formatGermanDate(s) {

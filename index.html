@@ -47,6 +47,13 @@
             100% { transform: scale(1) translate(0, 0); }
         }
         .animate-kenburns { animation: kenburns 12s ease-in-out infinite; }
+        /* Tageskopf der Pinnwand läuft über beide Spalten */
+        .memory-day-header { column-span: all; }
+        /* Karten-Popups im App-Stil */
+        #trip-map { background: #090d0c; }
+        #trip-map .leaflet-popup-content-wrapper, #trip-map .leaflet-popup-tip { background: #022c22; color: #e5e5e5; border: 1px solid rgba(213,120,63,.3); }
+        #trip-map .leaflet-popup-content { margin: 10px 12px; font-family: 'Inter', sans-serif; }
+        #trip-map .leaflet-container a.leaflet-popup-close-button { color: #a3a3a3; }
     </style>
     
     <script>
@@ -120,6 +127,15 @@
                     <div class="w-12 h-12 rounded-2xl bg-bronze-500/10 border border-bronze-500/20 flex items-center justify-center text-bronze-500 shrink-0">
                         <i class="fa-solid fa-route text-lg"></i>
                     </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="openTripMap()" class="py-2.5 bg-forest-900/30 border border-bronze-500/20 hover:border-bronze-500/50 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider text-bronze-400 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-map-location-dot text-xs"></i><span>Karte</span>
+                    </button>
+                    <button onclick="openYearStats()" class="py-2.5 bg-forest-900/30 border border-bronze-500/20 hover:border-bronze-500/50 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider text-bronze-400 transition flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-chart-simple text-xs"></i><span>Jahresrückblick</span>
+                    </button>
                 </div>
 
                 <div id="backup-cta" class="bg-gradient-to-r from-bronze-950/20 to-forest-900/20 border border-bronze-500/10 rounded-2xl p-4 flex items-center justify-between">
@@ -238,6 +254,7 @@
                             <i class="fa-solid fa-road"></i>
                             <span id="detail-trip-distance"></span>
                         </div>
+                        <div id="detail-trip-members" class="flex flex-wrap gap-1.5 pt-1"></div>
                     </div>
                 </div>
 
@@ -258,7 +275,12 @@
                     <p class="text-[10px] text-neutral-500 max-w-xs mx-auto">Verwende die Buttons oben, um die ersten Anekdoten, Geheimtipps oder unvergessliche Reisebilder festzuhalten.</p>
                 </div>
 
-                <div id="memories-grid" class="columns-2 gap-3 space-y-3 pb-8"></div>
+                <div id="memories-toolbar" class="hidden flex items-center justify-between">
+                    <span class="text-[9px] font-bold text-neutral-400 uppercase tracking-wider font-display">Pinnwand</span>
+                    <button id="memories-sort-btn" onclick="toggleMemorySort()" class="px-2.5 py-1 rounded-lg bg-forest-900/40 border border-forest-900/60 hover:border-bronze-500/40 text-[10px] font-bold font-display text-bronze-400 transition flex items-center space-x-1.5"></button>
+                </div>
+
+                <div id="memories-grid" class="columns-2 gap-3 pb-8"></div>
             </main>
         </div>
 
@@ -381,6 +403,16 @@
                 <label id="memory-text-modal-label" class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block">Deine Notiz / Anekdote</label>
                 <textarea id="text-memory-content" rows="5" placeholder="z.B. Das kleine Restaurant am Hafen hatte fantastischen Fisch..." class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl p-3 text-xs text-neutral-200 outline-none transition placeholder-neutral-600 resize-none"></textarea>
             </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Datum</label>
+                    <input type="date" id="memory-date-input" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2 text-xs text-neutral-200 outline-none transition placeholder-neutral-600">
+                </div>
+                <div>
+                    <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Ort (optional)</label>
+                    <input type="text" id="memory-place-input" placeholder="z. B. Limone" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2 text-xs text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off">
+                </div>
+            </div>
             <div class="space-y-2 pt-2">
                 <!-- Speichern & weitere: Feld wird geleert, Fenster bleibt offen -->
                 <button id="btn-memory-save-more" onclick="saveTextMemory(true)" class="w-full py-2.5 bg-forest-950 border border-bronze-500/25 hover:border-bronze-500/50 text-bronze-400 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
@@ -404,11 +436,12 @@
                 <label for="photo-input-file" class="block border-2 border-dashed border-forest-900 hover:border-bronze-500/40 rounded-2xl p-6 text-center transition cursor-pointer relative">
                     <div id="upload-placeholder-content" class="space-y-2">
                         <i class="fa-solid fa-cloud-arrow-up text-3xl text-neutral-500"></i>
-                        <p class="text-xs font-semibold text-neutral-300">Klicke zum Durchsuchen</p>
-                        <p class="text-[10px] text-neutral-500">JPG, PNG oder HEIC</p>
+                        <p class="text-xs font-semibold text-neutral-300">Fotos auswählen</p>
+                        <p class="text-[10px] text-neutral-500">Ein oder mehrere Bilder (JPG, PNG)</p>
                     </div>
-                    <img id="upload-preview-img" class="hidden w-full h-40 object-cover rounded-xl shadow-inner" alt="Vorschau">
                 </label>
+                <div id="upload-preview-grid" class="hidden grid grid-cols-4 gap-2"></div>
+                <p id="upload-preview-hint" class="hidden text-[10px] text-neutral-500"></p>
                 <!-- Zwei Wege: Galerie ODER Kamera. Als <label> statt Button, weil der
                      native Label-Klick die Kamera in PWA/WebView zuverlässiger auslöst
                      als ein programmatischer input.click(). -->
@@ -421,15 +454,35 @@
                     </label>
                 </div>
                 <!-- Galerie-Input: kein capture, damit die Fotoauswahl erscheint -->
-                <input type="file" id="photo-input-file" accept="image/*" class="hidden" onchange="handleFileSelected(event)">
+                <input type="file" id="photo-input-file" accept="image/*" multiple class="hidden" onchange="handleFileSelected(event)">
                 <!-- Kamera-Input: capture="environment" öffnet direkt die Rückkamera -->
                 <input type="file" id="photo-input-camera" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelected(event)">
                 <input type="text" id="photo-caption-file" placeholder="Beschreibung für das Foto (optional)..." class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2 text-xs text-neutral-200 outline-none transition placeholder-neutral-600">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Datum</label>
+                        <input type="date" id="photo-date-input" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2 text-xs text-neutral-200 outline-none transition placeholder-neutral-600">
+                        <span class="text-[9px] text-neutral-500 block mt-1">Leer = Aufnahmedatum des Fotos</span>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Ort (optional)</label>
+                        <input type="text" id="photo-place-input" placeholder="z. B. Limone" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2 text-xs text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off">
+                    </div>
+                </div>
             </div>
             <div class="flex space-x-3 pt-2">
                 <button onclick="closeActiveModal()" class="flex-1 py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Abbrechen</button>
-                <button onclick="savePhotoMemory()" class="flex-1 py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold shadow-lg shadow-bronze-600/20 hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">Speichern</button>
+                <button id="btn-photo-save" onclick="savePhotoMemory()" class="flex-1 py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold shadow-lg shadow-bronze-600/20 hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">Speichern</button>
             </div>
+        </div>
+
+        <!-- Modal: Jahresrückblick -->
+        <div id="modal-year-stats" class="hidden bg-forest-900 border border-bronze-500/20 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative max-h-[88vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-forest-900 pb-3">
+                <h3 class="font-display font-bold text-base text-neutral-100 flex items-center space-x-2"><i class="fa-solid fa-chart-simple text-bronze-500"></i><span>Jahresrückblick</span></h3>
+                <button onclick="closeActiveModal()" class="text-neutral-400 hover:text-neutral-200 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="year-stats-content" class="space-y-3"></div>
         </div>
 
         <!-- Modal: Profile Center -->
@@ -613,7 +666,10 @@
         let firestoreUnsubscribe = null;
         let tempStartCoords = null;
         let tempDestCoords = null;
-        let uploadedImageBase64 = null;
+        let uploadedImages = [];       // ausgewählte Fotos: { dataUrl, takenAt }
+        let tempDestCountry = null;    // Land des gewählten Reiseziels
+        let memorySortDir = 'asc';     // Pinnwand: 'asc' = älteste zuerst
+        try { memorySortDir = localStorage.getItem('wl_memory_sort') === 'desc' ? 'desc' : 'asc'; } catch {}
         let silentPops = 0;           // zählt selbst ausgelöste Verlaufs-Schritte (kein Nutzer-"Zurück")
         let editingMemoryId = null;   // gesetzt, wenn eine Notiz/Bildbeschreibung bearbeitet wird
 
@@ -656,17 +712,20 @@
             const replacing = !!activeModalId && history.state?.view === 'modal';
             closeActiveModal(true);
             // Eingabefelder beim Öffnen leeren, damit immer frisch gestartet wird
+            const tripForDefaults = tripsList.find(t => t.id === activeTripId);
             if (modalId === 'modal-add-memory-text') {
                 const f = document.getElementById('text-memory-content');
                 if (f) f.value = '';
+                setFieldValue('memory-date-input', defaultMemoryDate(tripForDefaults));
+                setFieldValue('memory-place-input', '');
                 setMemoryTextModalMode(null);
             }
             if (modalId === 'modal-add-memory-photo') {
-                uploadedImageBase64 = null;
-                const c = document.getElementById('photo-caption-file');
-                if (c) c.value = '';
-                document.getElementById('upload-preview-img')?.classList.add('hidden');
-                document.getElementById('upload-placeholder-content')?.classList.remove('hidden');
+                uploadedImages = [];
+                renderUploadPreview();
+                setFieldValue('photo-caption-file', '');
+                setFieldValue('photo-date-input', '');
+                setFieldValue('photo-place-input', '');
             }
             const backdrop = document.getElementById('modal-backdrop');
             const target = document.getElementById(modalId);
@@ -699,6 +758,7 @@
             editingTripId = null;
             tempStartCoords = null;
             tempDestCoords = null;
+            tempDestCountry = null;
             document.getElementById('modal-trip-title').innerText = "Neues Abenteuer planen";
             document.getElementById('btn-trip-submit-text').innerText = "Trip erstellen";
             document.getElementById('trip-calc-distance-preview').classList.add('hidden');
@@ -723,6 +783,7 @@
             editingTripId = trip.id;
             tempStartCoords = trip.startCoords || null;
             tempDestCoords = trip.destCoords || null;
+            tempDestCountry = trip.destCountry || null;
             document.getElementById('trip-name-input').value = trip.name || "";
             document.getElementById('trip-start-input').value = trip.origin || "";
             document.getElementById('trip-destination-input').value = trip.destination || "";
@@ -931,7 +992,7 @@
                 const [hitS, hitD] = await Promise.all([sc ? null : geocodeFirst(origin), dc ? null : geocodeFirst(destination)]);
                 if (btn) btn.disabled = false;
                 if (hitS) { sc = hitS.coords; origin = hitS.full; }
-                if (hitD) { dc = hitD.coords; destination = hitD.full; }
+                if (hitD) { dc = hitD.coords; destination = hitD.full; tempDestCountry = hitD.country || null; }
             }
 
             const prevTrip = editingTripId ? tripsList.find(t => t.id === editingTripId) : null;
@@ -952,6 +1013,8 @@
                 purpose, transport, distance,
                 startCoords: sc,
                 destCoords:  dc,
+                destCountry: tempDestCountry || null,
+                memberNames: { ...(existing?.memberNames || {}), [activeUser.uid]: activeUser.displayName || 'Entdecker' },
                 memories, ownerId, members,
                 timestamp: existing?.timestamp || Date.now()
             };
@@ -1004,6 +1067,7 @@
             if (!fromPopstate) {
                 history.pushState({ view: 'trip', tripId }, '');
             }
+            ensureOwnMemberName(trip);
         };
 
         window.showDashboardView = function(fromPopstate) {
@@ -1032,19 +1096,22 @@
             const authorLine = memory.author
                 ? `<p class="text-[10px] text-bronze-400/80 text-center mt-2 font-display uppercase tracking-wider">von ${escapeHTML(memory.author)}</p>`
                 : '';
+            const metaBits = [formatGermanDate(memoryDay(memory)), memory.place].filter(Boolean).map(escapeHTML);
+            const metaLine = `<p class="text-[10px] text-neutral-400 text-center mt-2"><i class="fa-regular fa-calendar mr-1"></i>${metaBits.join(' · <i class="fa-solid fa-location-dot mx-1"></i>')}</p>`;
             const editable = canEditMemory(trip, memory);
             const editButton = (labelText) => editable
                 ? `<button onclick="openEditMemory('${memory.id}')" class="w-full py-2.5 mt-2 bg-forest-950 border border-bronze-500/25 hover:border-bronze-500/50 text-bronze-400 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5"><i class="fa-solid fa-pen text-xs"></i><span>${labelText}</span></button>`
                 : '';
             if (memory.type === 'note') {
                 title.innerText = "Anekdote lesen";
-                content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>${authorLine}${editButton('Notiz bearbeiten')}`;
+                content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>${metaLine}${authorLine}${editButton('Notiz bearbeiten')}`;
             } else {
                 title.innerText = "📸 Foto";
                 // Bild: Klick öffnet Vollbild. Darunter ein Download-Button.
                 content.innerHTML = `
                     <img src="${escapeHTML(memory.image)}" onclick="openFullscreenImage('${memory.id}')" class="w-full h-auto max-h-[55vh] object-contain rounded-2xl shadow-lg border border-white/5 cursor-zoom-in" alt="Memory">
                     ${memory.text ? `<p class="text-xs text-neutral-300 italic text-center px-2 mt-2 leading-relaxed">${escapeHTML(memory.text)}</p>` : ''}
+                    ${metaLine}
                     ${authorLine}
                     <div class="flex gap-2 w-full pt-2">
                         <button onclick="openFullscreenImage('${memory.id}')" class="flex-1 py-2.5 bg-forest-950 border border-forest-900 hover:border-bronze-500/40 text-neutral-300 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
@@ -1054,7 +1121,7 @@
                             <i class="fa-solid fa-download text-xs"></i><span>Herunterladen</span>
                         </button>
                     </div>
-                    ${editButton(memory.text ? 'Beschreibung bearbeiten' : 'Beschreibung hinzufügen')}`;
+                    ${editButton('Foto-Angaben bearbeiten')}`;
             }
             window.showModal('modal-lightbox');
         };
@@ -1156,29 +1223,131 @@
         window.triggerFileInput = () => document.getElementById('photo-input-file')?.click();
         window.triggerCameraInput = () => document.getElementById('photo-input-camera')?.click();
 
-        window.handleFileSelected = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
+        // ── Datum-/Feld-Helfer ───────────────────────────────────────────
+        function setFieldValue(id, value) { const el = document.getElementById(id); if (el) el.value = value; }
+        function localDay(ts) {
+            const d = new Date(ts), p = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+        }
+        // Tag eines Eintrags: eigenes Datum, sonst Aufnahme- bzw. Erstellzeit
+        function memoryDay(m) { return m.date || localDay(m.takenAt || m.timestamp || Date.now()); }
+        function memorySortKey(m) { return memoryDay(m) + '|' + String(m.takenAt || m.timestamp || 0).padStart(15, '0'); }
+        // Vorgabe für neue Einträge: heute, sofern innerhalb des Trips – sonst der erste Reisetag
+        function defaultMemoryDate(trip) {
+            const today = localDay(Date.now());
+            if (trip?.dateStart && trip?.dateEnd && (today < trip.dateStart || today > trip.dateEnd)) return trip.dateStart;
+            return today;
+        }
+
+        // Liest das Aufnahmedatum (EXIF DateTimeOriginal) aus einer JPEG-Datei. null, wenn keins da ist.
+        async function readExifDate(file) {
+            try {
+                const v = new DataView(await file.slice(0, 262144).arrayBuffer());
+                if (v.getUint16(0) !== 0xFFD8) return null;
+                let off = 2;
+                while (off + 4 < v.byteLength) {
+                    const marker = v.getUint16(off);
+                    if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) break;
+                    const size = v.getUint16(off + 2);
+                    if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) {      // "Exif"
+                        const tiff = off + 10;
+                        const le = v.getUint16(tiff) === 0x4949;
+                        const u16 = o => v.getUint16(o, le), u32 = o => v.getUint32(o, le);
+                        const readIFD = (start, wanted) => {
+                            const res = {}, n = u16(start);
+                            for (let i = 0; i < n; i++) {
+                                const e = start + 2 + i * 12, tag = u16(e);
+                                if (wanted.includes(tag)) res[tag] = { count: u32(e + 4), value: u32(e + 8), entry: e };
+                            }
+                            return res;
+                        };
+                        const str = ent => {
+                            const o = ent.count > 4 ? tiff + ent.value : ent.entry + 8;
+                            let s = '';
+                            for (let i = 0; i < ent.count - 1; i++) s += String.fromCharCode(v.getUint8(o + i));
+                            return s;
+                        };
+                        const ifd0 = readIFD(tiff + u32(tiff + 4), [0x8769, 0x0132]);
+                        let s = null;
+                        if (ifd0[0x8769]) {
+                            const sub = readIFD(tiff + ifd0[0x8769].value, [0x9003, 0x9004]);
+                            const t = sub[0x9003] || sub[0x9004];
+                            if (t) s = str(t);
+                        }
+                        if (!s && ifd0[0x0132]) s = str(ifd0[0x0132]);
+                        const m = s && s.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+                        if (!m || +m[1] < 1990) return null;
+                        const d = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+                        return isNaN(d) ? null : d.getTime();
+                    }
+                    off += 2 + size;
+                }
+            } catch {}
+            return null;
+        }
+
+        // Verkleinert ein Bild auf max. 1600 px und liefert es als JPEG-Data-URL.
+        function resizeImageFile(file) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
                 const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
+                img.onload = () => {
                     const maxDim = 1600;
                     let w = img.width, h = img.height;
-                    if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+                    if (w >= h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
                     else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+                    const canvas = document.createElement('canvas');
                     canvas.width = w; canvas.height = h;
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    uploadedImageBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                    document.getElementById('upload-placeholder-content')?.classList.add('hidden');
-                    const prev = document.getElementById('upload-preview-img');
-                    if (prev) { prev.src = uploadedImageBase64; prev.classList.remove('hidden'); }
+                    URL.revokeObjectURL(url);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
                 };
-                img.onerror = () => showToast("Dieses Bildformat kann der Browser nicht lesen. Bitte JPG oder PNG wählen.", "error");
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('unlesbar')); };
+                img.src = url;
+            });
+        }
+
+        const MAX_PHOTOS_PER_UPLOAD = 20;
+
+        function renderUploadPreview() {
+            const grid = document.getElementById('upload-preview-grid');
+            const hint = document.getElementById('upload-preview-hint');
+            const placeholder = document.getElementById('upload-placeholder-content');
+            if (!grid) return;
+            grid.innerHTML = '';
+            grid.classList.toggle('hidden', !uploadedImages.length);
+            hint?.classList.toggle('hidden', !uploadedImages.length);
+            if (placeholder) placeholder.querySelector('p').innerText = uploadedImages.length ? 'Weitere Fotos hinzufügen' : 'Fotos auswählen';
+            uploadedImages.forEach((item, idx) => {
+                const cell = document.createElement('button');
+                cell.type = 'button';
+                cell.title = 'Antippen zum Entfernen';
+                cell.className = 'relative aspect-square rounded-lg overflow-hidden border border-forest-900';
+                cell.innerHTML = `<img src="${item.dataUrl}" class="w-full h-full object-cover" alt="Vorschau"><span class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 text-white text-[9px] flex items-center justify-center"><i class="fa-solid fa-xmark"></i></span>`;
+                cell.onclick = () => { uploadedImages.splice(idx, 1); renderUploadPreview(); };
+                grid.appendChild(cell);
+            });
+            if (hint) hint.innerText = uploadedImages.length === 1
+                ? '1 Foto ausgewählt. Antippen entfernt es.'
+                : `${uploadedImages.length} Fotos ausgewählt. Beschreibung und Ort gelten für alle. Antippen entfernt ein Foto.`;
+        }
+
+        window.handleFileSelected = async function(event) {
+            const files = Array.from(event.target.files || []);
+            event.target.value = '';   // dieselbe Datei kann danach erneut gewählt werden
+            if (!files.length) return;
+            const room = MAX_PHOTOS_PER_UPLOAD - uploadedImages.length;
+            if (files.length > room) showToast(`Maximal ${MAX_PHOTOS_PER_UPLOAD} Fotos auf einmal.`, "info");
+            let failed = 0;
+            for (const file of files.slice(0, Math.max(room, 0))) {
+                try {
+                    const [dataUrl, exifDate] = await Promise.all([resizeImageFile(file), readExifDate(file)]);
+                    // Ohne EXIF-Datum: Änderungsdatum der Datei als Näherung
+                    uploadedImages.push({ dataUrl, takenAt: exifDate || file.lastModified || null, hasExif: !!exifDate });
+                    renderUploadPreview();
+                } catch { failed++; }
+            }
+            if (failed) showToast(`${failed} ${failed === 1 ? 'Bild konnte' : 'Bilder konnten'} nicht gelesen werden (bitte JPG oder PNG).`, "error");
         };
 
         // Darf der aktuelle Nutzer diesen Eintrag bearbeiten? Nur der Ersteller.
@@ -1203,7 +1372,7 @@
             const title = document.getElementById('memory-text-modal-title');
             const label = document.getElementById('memory-text-modal-label');
             const more  = document.getElementById('btn-memory-save-more');
-            if (title) title.innerText = !memory ? 'Anekdote festhalten' : (isPhoto ? 'Bildbeschreibung bearbeiten' : 'Anekdote bearbeiten');
+            if (title) title.innerText = !memory ? 'Anekdote festhalten' : (isPhoto ? 'Foto-Angaben bearbeiten' : 'Anekdote bearbeiten');
             if (label) label.innerText = isPhoto ? 'Beschreibung für das Foto' : 'Deine Notiz / Anekdote';
             more?.classList.toggle('hidden', !!memory);
         }
@@ -1217,6 +1386,8 @@
             setMemoryTextModalMode(memory);
             const field = document.getElementById('text-memory-content');
             if (field) { field.value = memory.text || ''; field.focus(); }
+            setFieldValue('memory-date-input', memoryDay(memory));
+            setFieldValue('memory-place-input', memory.place || '');
         };
 
         window.saveTextMemory = async function(keepOpen) {
@@ -1233,19 +1404,25 @@
                 // Eine Notiz braucht Text, eine Bildbeschreibung darf leer sein
                 if (!content && memory.type !== 'photo') { showToast("Die Notiz darf nicht leer sein.", "error"); return; }
                 memory.text = content || '';
+                memory.date = document.getElementById('memory-date-input')?.value || memoryDay(memory);
+                memory.place = document.getElementById('memory-place-input')?.value.trim() || '';
                 memory.editedAt = Date.now();
                 saveTripsToLocalStorage();
                 renderTripMemoriesGrid();
                 showToast("Änderung gespeichert. ✍️", "success");
                 window.closeActiveModal();
-                const editedId = memory.id, editedText = memory.text, editedAt = memory.editedAt;
-                syncMemoryChange(trip.id, arr => arr.map(m => m.id === editedId ? { ...m, text: editedText, editedAt } : m), trip.memories);
+                const ed = { text: memory.text, date: memory.date, place: memory.place, editedAt: memory.editedAt };
+                const editedId = memory.id;
+                syncMemoryChange(trip.id, arr => arr.map(m => m.id === editedId ? { ...m, ...ed } : m), trip.memories);
                 return;
             }
 
             if (!content) { showToast("Bitte schreibe eine Anekdote!", "error"); return; }
             if (!trip.memories) trip.memories = [];
-            const newMem = { id: 'mem_' + Date.now(), type: 'note', text: content, author: activeUser?.displayName || 'Unbekannt', authorId: activeUser?.uid || null, timestamp: Date.now() };
+            const newMem = { id: 'mem_' + Date.now(), type: 'note', text: content,
+                date: document.getElementById('memory-date-input')?.value || defaultMemoryDate(trip),
+                place: document.getElementById('memory-place-input')?.value.trim() || '',
+                author: activeUser?.displayName || 'Unbekannt', authorId: activeUser?.uid || null, timestamp: Date.now() };
             trip.memories.push(newMem);
             saveTripsToLocalStorage();
             renderTripMemoriesGrid();
@@ -1281,50 +1458,72 @@
         window.savePhotoMemory = async function() {
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
-            if (!uploadedImageBase64) { showToast("Bitte wähle zuerst ein Foto aus!", "error"); return; }
-            const finalImage   = uploadedImageBase64;
-            const finalCaption = document.getElementById('photo-caption-file')?.value.trim() || "";
+            if (!uploadedImages.length) { showToast("Bitte wähle zuerst ein Foto aus!", "error"); return; }
+            const items   = uploadedImages.slice();
+            const caption = document.getElementById('photo-caption-file')?.value.trim() || "";
+            const place   = document.getElementById('photo-place-input')?.value.trim() || "";
+            const dateOverride = document.getElementById('photo-date-input')?.value || "";
+            const btn = document.getElementById('btn-photo-save');
+            const btnLabel = btn?.innerText;
+            const base = Date.now();
 
-            const memId = 'mem_' + Date.now();
-            const newMemory = { id: memId, type: 'photo', image: finalImage, text: finalCaption, author: activeUser?.displayName || 'Unbekannt', authorId: activeUser?.uid || null, timestamp: Date.now() };
+            // Datum je Foto: Eingabe > EXIF-Aufnahmedatum > Dateidatum (nur wenn es in den
+            // Reisezeitraum fällt, sonst ist es meist das Download-Datum) > Vorgabe
+            const photoDay = (item) => {
+                if (dateOverride) return dateOverride;
+                if (!item.takenAt) return defaultMemoryDate(trip);
+                const day = localDay(item.takenAt);
+                const inTrip = !trip.dateStart || !trip.dateEnd || (day >= trip.dateStart && day <= trip.dateEnd);
+                return (item.hasExif || inTrip) ? day : defaultMemoryDate(trip);
+            };
+            const newMemories = items.map((item, i) => ({
+                id: `mem_${base}_${i}`, type: 'photo', image: item.dataUrl, text: caption, place,
+                date: photoDay(item),
+                takenAt: item.takenAt || null,
+                author: activeUser?.displayName || 'Unbekannt', authorId: activeUser?.uid || null,
+                timestamp: base + i
+            }));
 
-            // Firebase Storage Upload versuchen. Schlägt er fehl (Storage nicht
-            // eingerichtet, offline, Timeout), wird base64 als Fallback gespeichert –
-            // die Funktion läuft in JEDEM Fall bis zum Ende durch und schließt das Fenster.
+            // Upload zu Firebase Storage, drei Fotos gleichzeitig. Schlägt ein Upload fehl
+            // (offline, Timeout), bleibt das Bild als base64 im Eintrag – die Funktion läuft
+            // in jedem Fall bis zum Ende durch und schließt das Fenster.
             if (firebaseAvailable && storage && auth.currentUser) {
-                showToast("Foto wird hochgeladen... ☁️", "info");
-                try {
-                    const { url, path } = await uploadImageToStorage(finalImage, activeTripId, memId);
-                    newMemory.image = url;          // Download-URL statt base64
-                    newMemory.storagePath = path;   // Für spätere Löschung merken
-                } catch (e) {
-                    console.warn("Storage-Upload fehlgeschlagen, nutze base64-Fallback:", e);
-                    showToast("Cloud-Upload nicht verfügbar – Foto lokal gespeichert.", "info");
-                    // newMemory.image bleibt base64 – funktioniert weiterhin
-                }
+                if (btn) btn.disabled = true;
+                let done = 0, failedUploads = 0;
+                const progress = () => { if (btn) btn.innerText = `Lädt ${done}/${newMemories.length} …`; };
+                progress();
+                const queue = newMemories.slice();
+                const worker = async () => {
+                    for (let mem = queue.shift(); mem; mem = queue.shift()) {
+                        try {
+                            const { url, path } = await uploadImageToStorage(mem.image, trip.id, mem.id);
+                            mem.image = url;
+                            mem.storagePath = path;
+                        } catch (e) {
+                            failedUploads++;
+                            console.warn("Storage-Upload fehlgeschlagen, nutze base64-Fallback:", e);
+                        }
+                        done++; progress();
+                    }
+                };
+                await Promise.all([worker(), worker(), worker()]);
+                if (btn) { btn.disabled = false; btn.innerText = btnLabel; }
+                if (failedUploads) showToast(`${failedUploads} Foto(s) nur lokal gespeichert – Cloud-Upload nicht möglich.`, "info");
             }
 
             if (!trip.memories) trip.memories = [];
-            trip.memories.push(newMemory);
-            uploadedImageBase64 = null;
-            const prev = document.getElementById('upload-preview-img');
-            if (prev) prev.classList.add('hidden');
-            document.getElementById('upload-placeholder-content')?.classList.remove('hidden');
-            // Eingaben zurücksetzen, damit direkt das nächste Foto hinzugefügt werden kann
-            const captionField = document.getElementById('photo-caption-file');
-            if (captionField) captionField.value = '';
-            const fileInput = document.getElementById('photo-input-file');
-            if (fileInput) fileInput.value = '';
-            const camInput = document.getElementById('photo-input-camera');
-            if (camInput) camInput.value = '';
+            trip.memories.push(...newMemories);
+            uploadedImages = [];
+            renderUploadPreview();
             saveTripsToLocalStorage();
-            renderTripMemoriesGrid();
-            showToast("Erinnerungsbild gespeichert! 📸", "success");
-            window.closeActiveModal();
+            if (activeTripId === trip.id) renderTripMemoriesGrid();
+            showToast(newMemories.length === 1 ? "Erinnerungsbild gespeichert! 📸" : `${newMemories.length} Fotos gespeichert! 📸`, "success");
+            if (activeModalId === 'modal-add-memory-photo') window.closeActiveModal();
 
-            // Firestore-Sync ebenfalls abgesichert: base64-Bilder >1 MiB würden das
-            // Dokumentlimit sprengen – dann greift der catch und die App bleibt nutzbar.
-            syncMemoryChange(trip.id, arr => arr.some(m => m.id === newMemory.id) ? arr : [...arr, newMemory], trip.memories);
+            syncMemoryChange(trip.id, arr => {
+                const have = new Set(arr.map(m => m.id));
+                return [...arr, ...newMemories.filter(m => !have.has(m.id))];
+            }, trip.memories);
         };
 
         window.shareTripInvite = function() {
@@ -1335,17 +1534,226 @@
             showToast("Kollaborations-Link kopiert! 🌍", "success");
         };
 
-        window.triggerGlobalFlashback = function() {
+        window.triggerGlobalFlashback = function(year) {
             flashbackSlides = [];
-            tripsList.forEach(trip => {
-                (trip.memories || []).forEach(mem => flashbackSlides.push({ memory: mem, tripTitle: trip.name || trip.destination, tripPurpose: trip.purpose }));
+            const trips = tripsList
+                .filter(t => !year || tripYear(t) === String(year))
+                .sort((a, b) => (a.dateStart || '').localeCompare(b.dateStart || ''));
+            trips.forEach(trip => {
+                [...(trip.memories || [])].sort((a, b) => memorySortKey(a).localeCompare(memorySortKey(b)))
+                    .forEach(mem => flashbackSlides.push({ memory: mem, tripTitle: trip.name || trip.destination, tripPurpose: trip.purpose }));
             });
-            if (flashbackSlides.length === 0) { showToast("Füge zuerst Fotos oder Notizen hinzu!", "info"); return; }
+            if (flashbackSlides.length === 0) {
+                showToast(year ? `Für ${year} gibt es noch keine Fotos oder Notizen.` : "Füge zuerst Fotos oder Notizen hinzu!", "info");
+                return;
+            }
+            if (activeModalId) window.closeActiveModal();
+            const sub = document.getElementById('flashback-story-subtitle');
+            if (sub) sub.innerText = year ? `Dein Rückblick ${year}` : 'Dein Abenteuer-Rückblick';
             activeSlideIndex = 0; flashbackIsPaused = false;
             document.getElementById('flashback-player')?.classList.remove('hidden');
             buildFlashbackProgressBars();
             loadFlashbackSlide(0);
             startFlashbackTimer();
+        };
+
+        // ── Jahresrückblick ──────────────────────────────────────────────
+        function tripYear(t) { return (t.dateStart || '').slice(0, 4) || 'Ohne Datum'; }
+        // Land des Ziels: gespeichert bei der Ortsauswahl, sonst letzter Teil der Zieladresse
+        function tripCountry(t) {
+            if (t.destCountry) return t.destCountry;
+            const parts = (t.destination || '').split(',').map(s => s.trim()).filter(Boolean);
+            return parts.length > 1 ? parts[parts.length - 1] : null;
+        }
+        function tripDays(t) {
+            if (!t.dateStart || !t.dateEnd) return 0;
+            const d = Math.round((Date.parse(t.dateEnd) - Date.parse(t.dateStart)) / 864e5);
+            return d >= 0 ? d + 1 : 0;
+        }
+        function summarizeTrips(trips) {
+            const countries = [...new Set(trips.map(tripCountry).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+            return {
+                trips: trips.length,
+                km: trips.reduce((s, t) => s + (t.distance || 0), 0),
+                days: trips.reduce((s, t) => s + tripDays(t), 0),
+                memories: trips.reduce((s, t) => s + (t.memories?.length || 0), 0),
+                countries
+            };
+        }
+
+        window.openYearStats = function() {
+            const box = document.getElementById('year-stats-content');
+            if (!box) return;
+            const tile = (val, label) => `<div class="bg-forest-950/60 rounded-xl p-2 text-center"><div class="font-display font-bold text-sm text-neutral-100">${val}</div><div class="text-[8px] uppercase tracking-wider text-neutral-500">${label}</div></div>`;
+            const card = (title, s, year) => `
+                <div class="bg-forest-950/40 border border-forest-900 rounded-2xl p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-display font-bold text-sm text-bronze-400">${escapeHTML(title)}</h4>
+                        ${s.memories ? `<button onclick="triggerGlobalFlashback(${year ? `'${year}'` : ''})" class="px-2.5 py-1 rounded-lg bg-bronze-600 hover:bg-bronze-500 text-forest-950 text-[9px] font-bold font-display uppercase tracking-wider transition flex items-center space-x-1"><i class="fa-solid fa-play text-[8px]"></i><span>Rückblick</span></button>` : ''}
+                    </div>
+                    <div class="grid grid-cols-4 gap-2">
+                        ${tile(s.trips, s.trips === 1 ? 'Trip' : 'Trips')}${tile(s.km.toLocaleString('de-DE'), 'km')}${tile(s.days, s.days === 1 ? 'Tag' : 'Tage')}${tile(s.countries.length, s.countries.length === 1 ? 'Land' : 'Länder')}
+                    </div>
+                    ${s.countries.length ? `<p class="text-[10px] text-neutral-400 leading-snug"><i class="fa-solid fa-earth-europe text-bronze-500/70 mr-1"></i>${s.countries.map(escapeHTML).join(', ')}</p>` : ''}
+                    <p class="text-[10px] text-neutral-500">${s.memories} ${s.memories === 1 ? 'Pinnwand-Eintrag' : 'Pinnwand-Einträge'}</p>
+                </div>`;
+            if (!tripsList.length) {
+                box.innerHTML = `<p class="text-xs text-neutral-400 text-center py-6">Noch keine Trips vorhanden.</p>`;
+            } else {
+                const years = [...new Set(tripsList.map(tripYear))].sort((a, b) => b.localeCompare(a));
+                box.innerHTML = card('Gesamt', summarizeTrips(tripsList), null)
+                    + years.map(y => card(y, summarizeTrips(tripsList.filter(t => tripYear(t) === y)), /^\d{4}$/.test(y) ? y : null)).join('');
+            }
+            window.showModal('modal-year-stats');
+        };
+
+        // ── Mitreisende ──────────────────────────────────────────────────
+        function tripMemberList(trip) {
+            const ids = (trip.members && trip.members.length) ? trip.members : (trip.ownerId ? [trip.ownerId] : []);
+            return ids.map(id => {
+                // Name: im Trip hinterlegt, sonst aus einem Pinnwand-Eintrag dieser Person
+                const fromMemory = (trip.memories || []).find(m => m.authorId === id && m.author)?.author;
+                return {
+                    id,
+                    name: trip.memberNames?.[id] || fromMemory || null,
+                    isMe: !!activeUser && id === activeUser.uid,
+                    isOwner: id === trip.ownerId
+                };
+            }).sort((a, b) => (b.isOwner - a.isOwner) || (b.isMe - a.isMe));
+        }
+
+        function renderTripMembers(trip) {
+            const box = document.getElementById('detail-trip-members');
+            if (!box) return;
+            const list = tripMemberList(trip);
+            box.innerHTML = list.map(m => {
+                const label = m.isMe ? 'Du' : (m.name || 'Mitreisende/r');
+                return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-forest-950/60 border ${m.isMe ? 'border-bronze-500/40 text-bronze-400' : 'border-forest-900 text-neutral-300'} text-[10px]">
+                    <i class="fa-solid ${m.isOwner ? 'fa-crown text-bronze-500' : 'fa-user text-neutral-500'} text-[8px]"></i><span>${escapeHTML(label)}</span></span>`;
+            }).join('');
+        }
+
+        // Hinterlegt den eigenen Anzeigenamen im Trip, damit andere ihn sehen.
+        function ensureOwnMemberName(trip) {
+            if (!trip || !activeUser || !(firebaseAvailable && db && auth?.currentUser)) return;
+            const uid = auth.currentUser.uid, name = activeUser.displayName || 'Entdecker';
+            if (!(trip.members || []).includes(uid) || trip.memberNames?.[uid] === name) return;
+            trip.memberNames = { ...(trip.memberNames || {}), [uid]: name };
+            updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', trip.id), { [`memberNames.${uid}`]: name })
+                .catch(e => console.warn("Name im Trip konnte nicht hinterlegt werden:", e));
+        }
+
+        // ── Karte aller Trips (Leaflet, wird erst beim ersten Öffnen geladen) ─────
+        let tripMap = null, tripMapLayer = null, leafletLoading = null;
+        function loadLeaflet() {
+            if (window.L) return Promise.resolve();
+            if (leafletLoading) return leafletLoading;
+            leafletLoading = new Promise((resolve, reject) => {
+                const css = document.createElement('link');
+                css.rel = 'stylesheet';
+                css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+                document.head.appendChild(css);
+                const js = document.createElement('script');
+                js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+                js.onload = resolve;
+                js.onerror = () => { leafletLoading = null; reject(new Error('Leaflet nicht ladbar')); };
+                document.head.appendChild(js);
+            });
+            return leafletLoading;
+        }
+        function toLatLng(c) {
+            if (!c) return null;
+            const lat = Array.isArray(c) ? c[0] : (c.lat ?? c.latitude ?? c[0]);
+            const lon = Array.isArray(c) ? c[1] : (c.lng ?? c.lon ?? c.longitude ?? c[1]);
+            return (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)) ? [lat, lon] : null;
+        }
+
+        window.openTripMap = async function() {
+            try { await loadLeaflet(); }
+            catch { showToast("Die Karte konnte nicht geladen werden (Internetverbindung?).", "error"); return; }
+
+            let overlay = document.getElementById('trip-map-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'trip-map-overlay';
+                overlay.className = 'fixed inset-0 z-[55] hidden flex flex-col bg-forest-950';
+                overlay.innerHTML = `
+                    <div class="h-14 px-4 flex items-center justify-between border-b border-forest-900/60 shrink-0">
+                        <h3 class="font-display font-bold text-sm text-neutral-100 flex items-center space-x-2"><i class="fa-solid fa-map-location-dot text-bronze-500"></i><span>Deine Trips</span></h3>
+                        <div class="flex items-center space-x-3">
+                            <span id="trip-map-info" class="text-[10px] text-neutral-400"></span>
+                            <button onclick="closeTripMap()" class="w-9 h-9 rounded-full bg-forest-900/60 border border-forest-900 text-neutral-200 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                    <div id="trip-map" class="flex-1"></div>`;
+                document.body.appendChild(overlay);
+            }
+            overlay.classList.remove('hidden');
+            history.pushState({ view: 'map' }, '');
+
+            if (!tripMap) {
+                tripMap = L.map('trip-map', { zoomControl: true, attributionControl: true }).setView([51.16, 10.45], 5);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 18, subdomains: 'abcd',
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                }).addTo(tripMap);
+                tripMapLayer = L.layerGroup().addTo(tripMap);
+            }
+            tripMapLayer.clearLayers();
+
+            const bounds = [];
+            let shown = 0;
+            tripsList.forEach(trip => {
+                const start = toLatLng(trip.startCoords), dest = toLatLng(trip.destCoords);
+                if (!dest) return;
+                shown++;
+                if (start) {
+                    L.polyline([start, dest], { color: '#d5783f', weight: 2, opacity: 0.6, dashArray: '5 6' }).addTo(tripMapLayer);
+                    L.circleMarker(start, { radius: 4, color: '#a3a3a3', weight: 1, fillColor: '#a3a3a3', fillOpacity: 0.8 }).addTo(tripMapLayer);
+                    bounds.push(start);
+                }
+                bounds.push(dest);
+                L.circleMarker(dest, { radius: 8, color: '#fbeee2', weight: 1.5, fillColor: '#d5783f', fillOpacity: 0.95 })
+                    .addTo(tripMapLayer)
+                    .bindPopup(`<div style="min-width:170px">
+                        <div style="font-weight:700;font-size:13px;color:#fff">${escapeHTML(trip.name || trip.destination)}</div>
+                        <div style="font-size:11px;color:#a3a3a3;margin-top:2px">${escapeHTML(trip.destination || '')}</div>
+                        <div style="font-size:11px;color:#a3a3a3">${formatGermanDate(trip.dateStart)} – ${formatGermanDate(trip.dateEnd)} · ${(trip.distance || 0).toLocaleString('de-DE')} km</div>
+                        <button onclick="openTripFromMap('${trip.id}')" style="margin-top:8px;width:100%;padding:6px 0;border-radius:8px;background:#b87333;color:#090d0c;font-weight:700;font-size:11px">Trip öffnen</button>
+                    </div>`);
+            });
+            const missing = tripsList.length - shown;
+            const info = document.getElementById('trip-map-info');
+            if (info) info.innerText = `${shown} ${shown === 1 ? 'Trip' : 'Trips'}` + (missing ? ` · ${missing} ohne Ortsangabe` : '');
+
+            // Erst nach dem Einblenden kennt Leaflet die echte Größe des Containers
+            setTimeout(() => {
+                tripMap.invalidateSize();
+                if (bounds.length === 1) tripMap.setView(bounds[0], 8);
+                else if (bounds.length) tripMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
+            }, 60);
+        };
+
+        window.closeTripMap = function(fromPopstate) {
+            const overlay = document.getElementById('trip-map-overlay');
+            if (!overlay || overlay.classList.contains('hidden')) return;
+            overlay.classList.add('hidden');
+            if (!fromPopstate && history.state?.view === 'map') silentHistoryGo(-1);
+        };
+
+        window.openTripFromMap = function(tripId) {
+            const overlay = document.getElementById('trip-map-overlay');
+            overlay?.classList.add('hidden');
+            // Den Karten-Eintrag im Verlauf durch den Trip ersetzen
+            if (history.state?.view === 'map') history.replaceState({ view: 'trip', tripId }, '');
+            window.showTripDetailView(tripId, history.state?.view === 'trip');
+        };
+
+        // ── Pinnwand-Sortierung ──────────────────────────────────────────
+        window.toggleMemorySort = function() {
+            memorySortDir = memorySortDir === 'asc' ? 'desc' : 'asc';
+            try { localStorage.setItem('wl_memory_sort', memorySortDir); } catch {}
+            renderTripMemoriesGrid();
         };
 
         function buildFlashbackProgressBars() {
@@ -1465,13 +1873,14 @@
 
             await initApp();
 
-            setupAutocompleteInput('trip-start-input', 'start-autocomplete-dropdown', 'start-address-confirm', (coords) => {
+            setupAutocompleteInput('trip-start-input', 'start-autocomplete-dropdown', 'start-address-confirm', (coords, item) => {
                 tempStartCoords = coords;   // null = Text wurde geändert, Auswahl verworfen
                 recalculatePreviewDistance();
             });
 
-            setupAutocompleteInput('trip-destination-input', 'dest-autocomplete-dropdown', 'dest-address-confirm', (coords) => {
+            setupAutocompleteInput('trip-destination-input', 'dest-autocomplete-dropdown', 'dest-address-confirm', (coords, item) => {
                 tempDestCoords = coords;
+                tempDestCountry = item?.country || null;
                 recalculatePreviewDistance();
             });
 
@@ -1571,6 +1980,12 @@
             const fsOverlay = document.getElementById('fullscreen-image-overlay');
             if (fsOverlay && !fsOverlay.classList.contains('hidden')) {
                 window.closeFullscreenImage(true);   // eigener Verlaufseintrag ist durch "Zurück" schon weg
+                return;
+            }
+            // Karte offen? Dann die schließen.
+            const mapOverlay = document.getElementById('trip-map-overlay');
+            if (mapOverlay && !mapOverlay.classList.contains('hidden')) {
+                window.closeTripMap(true);
                 return;
             }
             // Flashback-Player offen? Erst den schließen.
@@ -1687,7 +2102,10 @@
                     if (!members.includes(userId)) {
                         members.push(userId);
                         // arrayUnion = atomar, überschreibt keine parallelen Beitritte
-                        await updateDoc(tripRef, { members: arrayUnion(userId) });
+                        await updateDoc(tripRef, {
+                            members: arrayUnion(userId),
+                            [`memberNames.${userId}`]: activeUser?.displayName || 'Entdecker'
+                        });
                     }
 
                     // FIX B: Trip sofort lokal einfügen.
@@ -1786,6 +2204,7 @@
                 try {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', id), {
                         ...trip, id, memories,
+                        memberNames: { [userUid]: activeUser?.displayName || 'Entdecker' },
                         ownerId:   userUid,
                         members:   [userUid],
                         timestamp: trip.timestamp || Date.now()
@@ -1847,7 +2266,7 @@
                 if (seen.has(dedupe)) return;
                 seen.add(dedupe);
                 items.push({
-                    ...f, order: i, icon: placeIcon(p), cc: (p.countrycode || '').toUpperCase(),
+                    ...f, order: i, icon: placeIcon(p), cc: (p.countrycode || '').toUpperCase(), country: p.country || '',
                     coords: [feat.geometry.coordinates[1], feat.geometry.coordinates[0]]
                 });
             });
@@ -1893,7 +2312,7 @@
                 input.value = it.full;
                 hide();
                 setAddressConfirm(confirmId, it.full, true);
-                onSelect(it.coords);
+                onSelect(it.coords, it);
                 input.blur();
             };
             const render = (items, q) => {
@@ -2056,7 +2475,7 @@
                 trip.destination,
                 trip.purpose,
                 trip.transport,
-                ...(trip.memories || []).map(m => m.text || '')
+                ...(trip.memories || []).map(m => `${m.text || ''} ${m.place || ''}`)
             ].join(' ').toLowerCase();
             // Alle eingegebenen Wörter müssen vorkommen (UND-Verknüpfung)
             return term.toLowerCase().split(/\s+/).filter(Boolean)
@@ -2112,18 +2531,39 @@
             document.getElementById('detail-trip-start').innerText     = `${trip.origin || 'Heimatort'} ➔ ${trip.destination || ''}`;
             document.getElementById('detail-trip-dates').innerText     = `${formatGermanDate(trip.dateStart)} – ${formatGermanDate(trip.dateEnd)}`;
             document.getElementById('detail-trip-distance').innerText  = `${(trip.distance || 0).toLocaleString('de-DE')} km (${trip.transport})`;
+            renderTripMembers(trip);
             renderTripMemoriesGrid();
         }
 
         function renderTripMemoriesGrid() {
-            const grid  = document.getElementById('memories-grid');
-            const empty = document.getElementById('memories-empty');
+            const grid    = document.getElementById('memories-grid');
+            const empty   = document.getElementById('memories-empty');
+            const toolbar = document.getElementById('memories-toolbar');
+            const sortBtn = document.getElementById('memories-sort-btn');
             if (!grid) return;
             grid.innerHTML = '';
             const trip = tripsList.find(t => t.id === activeTripId);
-            if (!trip?.memories?.length) { empty?.classList.remove('hidden'); return; }
+            if (!trip?.memories?.length) { empty?.classList.remove('hidden'); toolbar?.classList.add('hidden'); return; }
             empty?.classList.add('hidden');
-            trip.memories.forEach(memory => {
+            toolbar?.classList.remove('hidden');
+            if (sortBtn) sortBtn.innerHTML = memorySortDir === 'asc'
+                ? '<i class="fa-solid fa-arrow-down-short-wide"></i><span>Älteste zuerst</span>'
+                : '<i class="fa-solid fa-arrow-up-wide-short"></i><span>Neueste zuerst</span>';
+
+            const sorted = [...trip.memories].sort((a, b) => memorySortKey(a).localeCompare(memorySortKey(b)));
+            if (memorySortDir === 'desc') sorted.reverse();
+
+            let lastDay = null;
+            sorted.forEach(memory => {
+                // Tageskopf über beide Spalten
+                const day = memoryDay(memory);
+                if (day !== lastDay) {
+                    lastDay = day;
+                    const head = document.createElement('div');
+                    head.className = 'memory-day-header flex items-center gap-2 pt-2 pb-2';
+                    head.innerHTML = `<span class="text-[10px] font-bold font-display text-bronze-400 uppercase tracking-wider whitespace-nowrap"><i class="fa-regular fa-calendar mr-1"></i>${escapeHTML(formatGermanDate(day))}</span><span class="flex-1 border-t border-forest-900/60"></span>`;
+                    grid.appendChild(head);
+                }
                 const el = document.createElement('div');
                 el.className = "break-inside-avoid bg-forest-900/20 border border-forest-900/40 hover:border-bronze-500/30 rounded-2xl overflow-hidden p-3 space-y-2 mb-3 shadow-md relative cursor-pointer transition duration-155 hover:scale-[1.01]";
                 el.onclick = e => { if (e.target.closest('button')) return; window.openLightbox(memory.id); };
@@ -2133,10 +2573,14 @@
                 const editBtn = canEditMemory(trip, memory)
                     ? `<button onclick="window.openEditMemory('${memory.id}')" title="Bearbeiten" class="text-neutral-500 hover:text-bronze-400 text-[10px] transition"><i class="fa-solid fa-pen"></i></button>`
                     : '';
+                const placeLine = memory.place
+                    ? `<p class="text-[9px] text-neutral-400 leading-snug"><i class="fa-solid fa-location-dot text-bronze-500/70 mr-1"></i>${escapeHTML(memory.place)}</p>`
+                    : '';
+                const footer = (label) => `<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1 min-w-0">${label}${memory.author ? `<span class="text-neutral-500 normal-case truncate">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3 shrink-0">${editBtn}${delBtn}</span></div>`;
                 if (memory.type === 'note') {
-                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">Gedanke${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}${delBtn}</span></div>`;
+                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic break-words">"${escapeHTML(memory.text)}"</p>${placeLine}${footer('Gedanke')}`;
                 } else {
-                    el.innerHTML = `<img src="${escapeHTML(memory.image)}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">📸 Foto${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}${delBtn}</span></div>`;
+                    el.innerHTML = `<img src="${escapeHTML(memory.image)}" loading="lazy" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic break-words">${escapeHTML(memory.text)}</p>` : ''}${placeLine}${footer('📸 Foto')}`;
                 }
                 grid.appendChild(el);
             });

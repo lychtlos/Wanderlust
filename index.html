@@ -51,6 +51,8 @@
         .memory-day-header { column-span: all; }
         /* Karten-Popups im App-Stil */
         #trip-map { background: #090d0c; }
+        /* Helle OSM-Kacheln ins dunkle App-Design drehen */
+        #trip-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6); }
         #trip-map .leaflet-popup-content-wrapper, #trip-map .leaflet-popup-tip { background: #022c22; color: #e5e5e5; border: 1px solid rgba(213,120,63,.3); }
         #trip-map .leaflet-popup-content { margin: 10px 12px; font-family: 'Inter', sans-serif; }
         #trip-map .leaflet-container a.leaflet-popup-close-button { color: #a3a3a3; }
@@ -1693,9 +1695,10 @@
 
             if (!tripMap) {
                 tripMap = L.map('trip-map', { zoomControl: true, attributionControl: true }).setView([51.16, 10.45], 5);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    maxZoom: 18, subdomains: 'abcd',
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                // OpenStreetMap-Standardkacheln (kein API-Schlüssel nötig); per CSS abgedunkelt
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende'
                 }).addTo(tripMap);
                 tripMapLayer = L.layerGroup().addTo(tripMap);
             }

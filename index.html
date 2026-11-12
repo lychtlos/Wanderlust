@@ -298,23 +298,25 @@
                     <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Name / Bezeichnung des Trips</label>
                     <input type="text" id="trip-name-input" placeholder="z. B. Roadtrip Skandinavien" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2.5 text-xs text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="relative">
+                    <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Abreiseort</label>
                     <div class="relative">
-                        <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Abreiseort</label>
-                        <div class="relative">
-                            <input type="text" id="trip-start-input" placeholder="Startpunkt..." class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2.5 text-xs text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off" required>
-                            <span class="absolute right-3 top-2.5 text-bronze-500 text-xs"><i class="fa-solid fa-location-arrow"></i></span>
-                        </div>
-                        <div id="start-autocomplete-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-forest-950 border border-forest-900 rounded-xl max-h-40 overflow-y-auto z-50 hidden text-xs divide-y divide-forest-900 shadow-xl"></div>
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-bronze-500 text-xs pointer-events-none"><i class="fa-solid fa-location-arrow"></i></span>
+                        <input type="text" id="trip-start-input" placeholder="Adresse, Ort oder Sehenswürdigkeit" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl pl-9 pr-9 py-3 text-sm text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" required>
+                        <button type="button" data-clear-for="trip-start-input" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 text-neutral-500 hover:text-bronze-400 text-xs transition" title="Eingabe löschen"><i class="fa-solid fa-xmark"></i></button>
                     </div>
+                    <p id="start-address-confirm" class="hidden mt-1 text-[10px] leading-snug"></p>
+                    <div id="start-autocomplete-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-forest-950 border border-bronze-500/20 rounded-xl max-h-64 overflow-y-auto z-50 hidden shadow-xl"></div>
+                </div>
+                <div class="relative">
+                    <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Reiseziel</label>
                     <div class="relative">
-                        <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">Reiseziel</label>
-                        <div class="relative">
-                            <input type="text" id="trip-destination-input" placeholder="Wohin?..." class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl px-3 py-2.5 text-xs text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off" required>
-                            <span class="absolute right-3 top-2.5 text-bronze-500 text-xs"><i class="fa-solid fa-map-pin"></i></span>
-                        </div>
-                        <div id="dest-autocomplete-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-forest-950 border border-forest-900 rounded-xl max-h-40 overflow-y-auto z-50 hidden text-xs divide-y divide-forest-900 shadow-xl"></div>
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-bronze-500 text-xs pointer-events-none"><i class="fa-solid fa-map-pin"></i></span>
+                        <input type="text" id="trip-destination-input" placeholder="Adresse, Ort oder Sehenswürdigkeit" class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl pl-9 pr-9 py-3 text-sm text-neutral-200 outline-none transition placeholder-neutral-600" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" required>
+                        <button type="button" data-clear-for="trip-destination-input" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 text-neutral-500 hover:text-bronze-400 text-xs transition" title="Eingabe löschen"><i class="fa-solid fa-xmark"></i></button>
                     </div>
+                    <p id="dest-address-confirm" class="hidden mt-1 text-[10px] leading-snug"></p>
+                    <div id="dest-autocomplete-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-forest-950 border border-bronze-500/20 rounded-xl max-h-64 overflow-y-auto z-50 hidden shadow-xl"></div>
                 </div>
                 <div id="trip-calc-distance-preview" class="hidden flex items-center space-x-2 bg-bronze-500/10 border border-bronze-500/20 rounded-xl p-2.5 text-xs text-bronze-400 font-display">
                     <i class="fa-solid fa-arrows-left-right-to-line"></i>
@@ -372,16 +374,16 @@
         <!-- Modal: Add Text Memory -->
         <div id="modal-add-memory-text" class="hidden bg-forest-900 border border-bronze-500/20 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative overflow-hidden">
             <div class="flex items-center justify-between">
-                <h3 class="font-display font-bold text-base text-neutral-100 flex items-center space-x-2"><i class="fa-solid fa-pen text-bronze-500"></i><span>Anekdote festhalten</span></h3>
+                <h3 class="font-display font-bold text-base text-neutral-100 flex items-center space-x-2"><i class="fa-solid fa-pen text-bronze-500"></i><span id="memory-text-modal-title">Anekdote festhalten</span></h3>
                 <button onclick="closeActiveModal()" class="text-neutral-400 hover:text-neutral-200 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-1">
-                <label class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block">Deine Notiz / Anekdote</label>
+                <label id="memory-text-modal-label" class="text-[9px] font-bold uppercase tracking-wider text-neutral-400 block">Deine Notiz / Anekdote</label>
                 <textarea id="text-memory-content" rows="5" placeholder="z.B. Das kleine Restaurant am Hafen hatte fantastischen Fisch..." class="w-full bg-forest-950 border border-forest-900 focus:border-bronze-500 rounded-xl p-3 text-xs text-neutral-200 outline-none transition placeholder-neutral-600 resize-none"></textarea>
             </div>
             <div class="space-y-2 pt-2">
                 <!-- Speichern & weitere: Feld wird geleert, Fenster bleibt offen -->
-                <button onclick="saveTextMemory(true)" class="w-full py-2.5 bg-forest-950 border border-bronze-500/25 hover:border-bronze-500/50 text-bronze-400 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
+                <button id="btn-memory-save-more" onclick="saveTextMemory(true)" class="w-full py-2.5 bg-forest-950 border border-bronze-500/25 hover:border-bronze-500/50 text-bronze-400 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
                     <i class="fa-solid fa-plus text-xs"></i><span>Speichern & weitere Notiz</span>
                 </button>
                 <div class="flex space-x-3">
@@ -507,7 +509,7 @@
             </div>
             <div class="flex space-x-3 pt-2">
                 <button onclick="closeActiveModal()" class="flex-grow py-3 bg-forest-950 border border-forest-900 rounded-xl text-xs font-bold text-neutral-400 hover:text-neutral-300 transition font-display uppercase tracking-wider">Schließen</button>
-                <button onclick="closeActiveModal(); switchAuthTab('signup'); toggleProfileCenter();" class="flex-grow py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">E-Mail Registrierung</button>
+                <button onclick="switchAuthTab('signup'); toggleProfileCenter();" class="flex-grow py-3 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-xs font-bold hover:scale-[1.02] active:scale-[0.98] transition font-display uppercase tracking-wider">E-Mail Registrierung</button>
             </div>
         </div>
 
@@ -612,6 +614,7 @@
         let tempStartCoords = null;
         let tempDestCoords = null;
         let uploadedImageBase64 = null;
+        let editingMemoryId = null;   // gesetzt, wenn eine Notiz/Bildbeschreibung bearbeitet wird
 
         // ── Flashback state ─────────────────────────────────────────────
         let flashbackSlides = [];
@@ -638,11 +641,15 @@
 
         // ── Modal helpers ────────────────────────────────────────────────
         window.showModal = function(modalId) {
-            closeActiveModal();
+            // Ist schon ein Modal offen, wird es ersetzt: der vorhandene History-Eintrag
+            // wird wiederverwendet (kein back() + push, das sich gegenseitig aufheben würde).
+            const replacing = !!activeModalId && history.state?.view === 'modal';
+            closeActiveModal(true);
             // Eingabefelder beim Öffnen leeren, damit immer frisch gestartet wird
             if (modalId === 'modal-add-memory-text') {
                 const f = document.getElementById('text-memory-content');
                 if (f) f.value = '';
+                setMemoryTextModalMode(null);
             }
             if (modalId === 'modal-add-memory-photo') {
                 uploadedImageBase64 = null;
@@ -658,7 +665,8 @@
                 target.classList.remove('hidden');
                 activeModalId = modalId;
                 // History-Eintrag, damit der Zurück-Wisch erst das Modal schließt
-                history.pushState({ view: 'modal', modalId }, '');
+                if (replacing) history.replaceState({ view: 'modal', modalId }, '');
+                else history.pushState({ view: 'modal', modalId }, '');
             }
         };
 
@@ -685,8 +693,19 @@
             document.getElementById('btn-trip-submit-text').innerText = "Trip erstellen";
             document.getElementById('trip-calc-distance-preview').classList.add('hidden');
             document.getElementById('form-new-trip').reset();
+            resetAddressFields();
             window.showModal('modal-new-trip');
         };
+
+        // Bestätigungszeilen, Vorschlagslisten und X-Buttons der Adressfelder zurücksetzen
+        function resetAddressFields() {
+            [['trip-start-input', 'start-autocomplete-dropdown', 'start-address-confirm'],
+             ['trip-destination-input', 'dest-autocomplete-dropdown', 'dest-address-confirm']].forEach(([i, d, c]) => {
+                document.getElementById(d)?.classList.add('hidden');
+                setAddressConfirm(c, '', false);
+                document.querySelector(`[data-clear-for="${i}"]`)?.classList.toggle('hidden', !document.getElementById(i)?.value);
+            });
+        }
 
         window.openEditTripModal = function() {
             const trip = tripsList.find(t => t.id === activeTripId);
@@ -705,6 +724,7 @@
             if (transportEl) transportEl.checked = true;
             document.getElementById('modal-trip-title').innerText = "Abenteuer bearbeiten";
             document.getElementById('btn-trip-submit-text').innerText = "Änderungen speichern";
+            resetAddressFields();
             recalculatePreviewDistance();
             window.showModal('modal-new-trip');
         };
@@ -722,9 +742,12 @@
             const tripToDelete = tripsList.find(t => t.id === idToDelete);
             tripsList = tripsList.filter(t => t.id !== idToDelete);
             saveTripsToLocalStorage();
-            window.closeActiveModal();
+            // Modal- und Trip-Eintrag gemeinsam aus dem Verlauf nehmen
+            const steps = (history.state?.view === 'modal') ? -2 : 0;
+            window.closeActiveModal(true);
             showToast("Abenteuer gelöscht.", "success");
-            window.showDashboardView();
+            window.showDashboardView(true);
+            if (steps) history.go(steps);
 
             if (firebaseAvailable && db && auth.currentUser) {
                 deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', idToDelete))
@@ -849,8 +872,8 @@
         window.saveNewTrip = async function(event) {
             if (event) event.preventDefault();
             const name        = document.getElementById('trip-name-input').value.trim();
-            const origin      = document.getElementById('trip-start-input').value.trim();
-            const destination = document.getElementById('trip-destination-input').value.trim();
+            let origin        = document.getElementById('trip-start-input').value.trim();
+            let destination   = document.getElementById('trip-destination-input').value.trim();
             const dateStart   = document.getElementById('trip-date-start').value;
             const dateEnd     = document.getElementById('trip-date-end').value;
             const purpose     = document.querySelector('input[name="trip-purpose"]:checked')?.value || 'Urlaub';
@@ -862,12 +885,25 @@
                 if (Array.isArray(c)) return [c[0], c[1]];
                 return [c.lat ?? c.latitude ?? c[0], c.lng ?? c.lon ?? c.longitude ?? c[1]];
             };
-            const sc = normalise(tempStartCoords);
-            const dc = normalise(tempDestCoords);
+            let sc = normalise(tempStartCoords);
+            let dc = normalise(tempDestCoords);
 
+            // Kein Vorschlag angetippt? Dann den besten Treffer zum eingegebenen Text holen
+            // und die volle Adresse übernehmen (statt wie früher eine Zufallsdistanz zu speichern).
+            if (!sc || !dc) {
+                const btn = document.getElementById('btn-trip-submit-text');
+                if (btn) btn.disabled = true;
+                const [hitS, hitD] = await Promise.all([sc ? null : geocodeFirst(origin), dc ? null : geocodeFirst(destination)]);
+                if (btn) btn.disabled = false;
+                if (hitS) { sc = hitS.coords; origin = hitS.full; }
+                if (hitD) { dc = hitD.coords; destination = hitD.full; }
+            }
+
+            const prevTrip = editingTripId ? tripsList.find(t => t.id === editingTripId) : null;
             let distance = (sc && dc && sc[0] != null && dc[0] != null)
                 ? await calculateDistanceByTransport(sc[0], sc[1], dc[0], dc[1], transport)
-                : Math.floor(Math.random() * 400) + 100;
+                : (prevTrip?.distance || 0);
+            if (!sc || !dc) showToast("Ort nicht gefunden – Entfernung konnte nicht berechnet werden.", "info");
 
             const id           = editingTripId || 'trip_' + Date.now();
             const existing     = tripsList.find(t => t.id === id);
@@ -896,7 +932,7 @@
             window.closeActiveModal();
 
             if (editingTripId) {
-                window.showTripDetailView(id);
+                window.showTripDetailView(id, true);
                 editingTripId = null;
             } else {
                 window.showDashboardView();
@@ -955,9 +991,13 @@
             const authorLine = memory.author
                 ? `<p class="text-[10px] text-bronze-400/80 text-center mt-2 font-display uppercase tracking-wider">von ${escapeHTML(memory.author)}</p>`
                 : '';
+            const editable = canEditMemory(trip, memory);
+            const editButton = (labelText) => editable
+                ? `<button onclick="openEditMemory('${memory.id}')" class="w-full py-2.5 mt-2 bg-forest-950 border border-bronze-500/25 hover:border-bronze-500/50 text-bronze-400 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5"><i class="fa-solid fa-pen text-xs"></i><span>${labelText}</span></button>`
+                : '';
             if (memory.type === 'note') {
                 title.innerText = "Anekdote lesen";
-                content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>${authorLine}`;
+                content.innerHTML = `<div class="w-full bg-forest-950/70 p-5 rounded-2xl border border-forest-900 text-xs text-neutral-200 leading-relaxed italic font-sans whitespace-pre-wrap max-h-[50vh] overflow-y-auto">"${escapeHTML(memory.text)}"</div>${authorLine}${editButton('Notiz bearbeiten')}`;
             } else {
                 title.innerText = "📸 Foto";
                 // Bild: Klick öffnet Vollbild. Darunter ein Download-Button.
@@ -972,7 +1012,8 @@
                         <button onclick="downloadMemoryImage('${memory.id}')" class="flex-1 py-2.5 bg-gradient-to-r from-bronze-600 to-bronze-700 text-forest-950 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider transition flex items-center justify-center space-x-1.5">
                             <i class="fa-solid fa-download text-xs"></i><span>Herunterladen</span>
                         </button>
-                    </div>`;
+                    </div>
+                    ${editButton(memory.text ? 'Beschreibung bearbeiten' : 'Beschreibung hinzufügen')}`;
             }
             window.showModal('modal-lightbox');
         };
@@ -1093,14 +1134,68 @@
             reader.readAsDataURL(file);
         };
 
+        // Darf der aktuelle Nutzer diesen Eintrag bearbeiten? Nur der Ersteller.
+        // Neue Einträge tragen eine authorId. Ältere haben nur den Namen – dort zählt
+        // der Namensabgleich; ganz alte ohne Autor darf der Trip-Besitzer bearbeiten.
+        function canEditMemory(trip, memory) {
+            if (!activeUser || !memory) return false;
+            if (memory.authorId) return memory.authorId === activeUser.uid;
+            if (memory.author)   return memory.author === activeUser.displayName;
+            return trip?.ownerId === activeUser.uid;
+        }
+
+        // Schaltet das Notiz-Fenster zwischen "neu" und "bearbeiten" um.
+        function setMemoryTextModalMode(memory) {
+            editingMemoryId = memory ? memory.id : null;
+            const isPhoto = memory?.type === 'photo';
+            const title = document.getElementById('memory-text-modal-title');
+            const label = document.getElementById('memory-text-modal-label');
+            const more  = document.getElementById('btn-memory-save-more');
+            if (title) title.innerText = !memory ? 'Anekdote festhalten' : (isPhoto ? 'Bildbeschreibung bearbeiten' : 'Anekdote bearbeiten');
+            if (label) label.innerText = isPhoto ? 'Beschreibung für das Foto' : 'Deine Notiz / Anekdote';
+            more?.classList.toggle('hidden', !!memory);
+        }
+
+        window.openEditMemory = function(memoryId) {
+            const trip = tripsList.find(t => t.id === activeTripId);
+            const memory = trip?.memories?.find(m => m.id === memoryId);
+            if (!memory) return;
+            if (!canEditMemory(trip, memory)) { showToast("Nur der Ersteller kann diesen Eintrag bearbeiten.", "info"); return; }
+            window.showModal('modal-add-memory-text');   // leert das Feld und setzt den Modus zurück
+            setMemoryTextModalMode(memory);
+            const field = document.getElementById('text-memory-content');
+            if (field) { field.value = memory.text || ''; field.focus(); }
+        };
+
         window.saveTextMemory = async function(keepOpen) {
             const field = document.getElementById('text-memory-content');
             const content = field?.value.trim();
-            if (!content) { showToast("Bitte schreibe eine Anekdote!", "error"); return; }
             const trip = tripsList.find(t => t.id === activeTripId);
             if (!trip) return;
+
+            // Bearbeiten eines bestehenden Eintrags
+            if (editingMemoryId) {
+                const memory = trip.memories?.find(m => m.id === editingMemoryId);
+                if (!memory) { showToast("Der Eintrag existiert nicht mehr.", "error"); window.closeActiveModal(); return; }
+                if (!canEditMemory(trip, memory)) { showToast("Nur der Ersteller kann diesen Eintrag bearbeiten.", "info"); return; }
+                // Eine Notiz braucht Text, eine Bildbeschreibung darf leer sein
+                if (!content && memory.type !== 'photo') { showToast("Die Notiz darf nicht leer sein.", "error"); return; }
+                memory.text = content || '';
+                memory.editedAt = Date.now();
+                saveTripsToLocalStorage();
+                renderTripMemoriesGrid();
+                showToast("Änderung gespeichert. ✍️", "success");
+                window.closeActiveModal();
+                if (firebaseAvailable && db && auth.currentUser) {
+                    updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'trips', activeTripId), { memories: trip.memories })
+                        .catch(e => console.error("Cloud memory edit failed:", e));
+                }
+                return;
+            }
+
+            if (!content) { showToast("Bitte schreibe eine Anekdote!", "error"); return; }
             if (!trip.memories) trip.memories = [];
-            const newMem = { id: 'mem_' + Date.now(), type: 'note', text: content, author: activeUser?.displayName || 'Unbekannt', timestamp: Date.now() };
+            const newMem = { id: 'mem_' + Date.now(), type: 'note', text: content, author: activeUser?.displayName || 'Unbekannt', authorId: activeUser?.uid || null, timestamp: Date.now() };
             trip.memories.push(newMem);
             saveTripsToLocalStorage();
             renderTripMemoriesGrid();
@@ -1144,7 +1239,7 @@
             const finalCaption = document.getElementById('photo-caption-file')?.value.trim() || "";
 
             const memId = 'mem_' + Date.now();
-            const newMemory = { id: memId, type: 'photo', image: finalImage, text: finalCaption, author: activeUser?.displayName || 'Unbekannt', timestamp: Date.now() };
+            const newMemory = { id: memId, type: 'photo', image: finalImage, text: finalCaption, author: activeUser?.displayName || 'Unbekannt', authorId: activeUser?.uid || null, timestamp: Date.now() };
 
             // Firebase Storage Upload versuchen. Schlägt er fehl (Storage nicht
             // eingerichtet, offline, Timeout), wird base64 als Fallback gespeichert –
@@ -1329,17 +1424,13 @@
 
             await initApp();
 
-            setupAutocompleteInput('trip-start-input', 'start-autocomplete-dropdown', (coords, label) => {
-                tempStartCoords = coords;
-                document.getElementById('trip-start-input').value = label;
-                document.getElementById('start-autocomplete-dropdown').classList.add('hidden');
+            setupAutocompleteInput('trip-start-input', 'start-autocomplete-dropdown', 'start-address-confirm', (coords) => {
+                tempStartCoords = coords;   // null = Text wurde geändert, Auswahl verworfen
                 recalculatePreviewDistance();
             });
 
-            setupAutocompleteInput('trip-destination-input', 'dest-autocomplete-dropdown', (coords, label) => {
+            setupAutocompleteInput('trip-destination-input', 'dest-autocomplete-dropdown', 'dest-address-confirm', (coords) => {
                 tempDestCoords = coords;
-                document.getElementById('trip-destination-input').value = label;
-                document.getElementById('dest-autocomplete-dropdown').classList.add('hidden');
                 recalculatePreviewDistance();
             });
 
@@ -1656,36 +1747,166 @@
             localStorage.removeItem('wanderlust_trips_cache');
         }
 
-        function setupAutocompleteInput(inputId, dropdownId, onSelect) {
+        // ── Ortssuche (Photon / OpenStreetMap) ───────────────────────────
+        // Baut aus einem Treffer Titel, Unterzeile und die volle Adresse.
+        function formatPlace(p) {
+            const street = [p.street, p.housenumber].filter(Boolean).join(' ');
+            const town   = p.city || p.town || p.village || p.district || p.county || '';
+            const place  = town ? [p.postcode, town].filter(Boolean).join(' ') : '';
+            const title  = p.name || street || place || p.country || 'Unbekannter Ort';
+            const parts  = [];
+            if (p.name && street) parts.push(street);
+            if (place && place !== title) parts.push(place);
+            if (p.state && p.state !== town && p.state !== title && (!town || p.countrycode !== 'DE')) parts.push(p.state);
+            if (p.country && p.country !== title) parts.push(p.country);
+            const sub = parts.join(', ');
+            return { title, sub, full: sub ? `${title}, ${sub}` : title };
+        }
+
+        function placeIcon(p) {
+            const k = p.osm_key, v = p.osm_value;
+            if (p.type === 'house' || p.type === 'street') return 'fa-house';
+            if (k === 'place' || k === 'boundary') return 'fa-city';
+            if (k === 'tourism' && (v === 'hotel' || v === 'guest_house' || v === 'hostel')) return 'fa-bed';
+            if (k === 'tourism' || k === 'historic') return 'fa-landmark';
+            if (k === 'amenity' && (v === 'restaurant' || v === 'cafe' || v === 'bar' || v === 'pub')) return 'fa-utensils';
+            if (k === 'aeroway') return 'fa-plane';
+            if (k === 'railway' || k === 'public_transport') return 'fa-train';
+            if (k === 'natural' || k === 'leisure' || k === 'waterway') return 'fa-tree';
+            return 'fa-location-dot';
+        }
+
+        const placeSearchCache = new Map();
+
+        // Sucht Orte, Adressen und POIs. Deutschland wird bevorzugt, Ausland bleibt findbar.
+        async function searchPlaces(q, signal) {
+            const key = q.toLowerCase();
+            if (placeSearchCache.has(key)) return placeSearchCache.get(key);
+            const base = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=12&lang=de`;
+            // Schwerpunkt Deutschland-Mitte: Treffer in der Nähe werden höher gewichtet
+            let res = await fetch(`${base}&lat=51.16&lon=10.45&zoom=6&location_bias_scale=0.5`, { signal });
+            if (!res.ok) res = await fetch(base, { signal });   // Fallback ohne Gewichtung
+            const data = await res.json();
+            const seen = new Set();
+            const items = [];
+            (data.features || []).forEach((feat, i) => {
+                const p = feat.properties || {};
+                const f = formatPlace(p);
+                const dedupe = f.full.toLowerCase();
+                if (seen.has(dedupe)) return;
+                seen.add(dedupe);
+                items.push({
+                    ...f, order: i, icon: placeIcon(p), cc: (p.countrycode || '').toUpperCase(),
+                    coords: [feat.geometry.coordinates[1], feat.geometry.coordinates[0]]
+                });
+            });
+            // Rangfolge: Deutschland, dann Nachbarländer, dann Rest – je in Photon-Reihenfolge
+            const near = ['AT','CH','NL','DK','BE','LU','FR','PL','CZ','IT'];
+            const rank = it => it.cc === 'DE' ? 0 : (near.includes(it.cc) ? 1 : 2);
+            items.sort((a, b) => rank(a) - rank(b) || a.order - b.order);
+            const top = items.slice(0, 7);
+            placeSearchCache.set(key, top);
+            return top;
+        }
+
+        // Für Freitext ohne Auswahl: besten Treffer holen (max. 4 s), sonst null.
+        async function geocodeFirst(text) {
+            if (!text || text.length < 2) return null;
+            try {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 4000);
+                const items = await searchPlaces(text, ctrl.signal);
+                clearTimeout(t);
+                return items[0] || null;
+            } catch { return null; }
+        }
+
+        // Zeigt unter dem Feld die volle, erkannte Adresse (oder einen Hinweis).
+        function setAddressConfirm(confirmId, text, ok) {
+            const el = document.getElementById(confirmId);
+            if (!el) return;
+            if (!text) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+            el.className = `mt-1 text-[10px] leading-snug ${ok ? 'text-emerald-400' : 'text-neutral-500'}`;
+            el.innerHTML = `<i class="fa-solid ${ok ? 'fa-circle-check' : 'fa-circle-info'} mr-1"></i>${escapeHTML(text)}`;
+        }
+
+        function setupAutocompleteInput(inputId, dropdownId, confirmId, onSelect) {
             const input    = document.getElementById(inputId);
             const dropdown = document.getElementById(dropdownId);
+            const clearBtn = document.querySelector(`[data-clear-for="${inputId}"]`);
             if (!input || !dropdown) return;
-            let timer;
-            input.addEventListener('input', e => {
+            let timer, controller, lastQuery = '';
+
+            const hide = () => dropdown.classList.add('hidden');
+            const choose = (it) => {
+                input.value = it.full;
+                hide();
+                setAddressConfirm(confirmId, it.full, true);
+                onSelect(it.coords);
+                input.blur();
+            };
+            const render = (items, q) => {
+                dropdown.innerHTML = '';
+                if (!items.length) {
+                    dropdown.innerHTML = `<p class="px-3 py-3 text-xs text-neutral-500">Kein Treffer für „${escapeHTML(q)}“. Du kannst den Text trotzdem übernehmen.</p>`;
+                } else {
+                    items.forEach(it => {
+                        const row = document.createElement('button');
+                        row.type = 'button';
+                        row.className = 'w-full px-3 py-2.5 text-left hover:bg-forest-900 active:bg-forest-900 transition flex items-start gap-2.5 border-b border-forest-900/60 last:border-b-0';
+                        row.innerHTML = `<i class="fa-solid ${it.icon} text-bronze-500 text-xs mt-1 w-4 text-center shrink-0"></i>
+                            <span class="min-w-0"><span class="block text-sm text-neutral-100 leading-snug break-words">${escapeHTML(it.title)}</span>
+                            ${it.sub ? `<span class="block text-[11px] text-neutral-400 leading-snug break-words">${escapeHTML(it.sub)}</span>` : ''}</span>`;
+                        // pointerdown statt click: Auswahl greift, bevor das Feld den Fokus verliert
+                        row.addEventListener('pointerdown', e => { e.preventDefault(); choose(it); });
+                        dropdown.appendChild(row);
+                    });
+                }
+                dropdown.classList.remove('hidden');
+            };
+            const run = async (q) => {
+                if (controller) controller.abort();          // veraltete Anfrage abbrechen
+                controller = new AbortController();
+                lastQuery = q;
+                try {
+                    const items = await searchPlaces(q, controller.signal);
+                    if (q === lastQuery) render(items, q);
+                } catch (err) {
+                    if (err.name !== 'AbortError') console.warn("Ortssuche:", err);
+                }
+            };
+
+            input.addEventListener('input', () => {
                 clearTimeout(timer);
-                const q = e.target.value.trim();
-                if (q.length < 3) { dropdown.classList.add('hidden'); return; }
-                timer = setTimeout(async () => {
-                    try {
-                        const res  = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lang=de`);
-                        const data = await res.json();
-                        if (data.features?.length) {
-                            dropdown.innerHTML = ''; dropdown.classList.remove('hidden');
-                            data.features.forEach(feat => {
-                                const p     = feat.properties;
-                                const label = [p.name, p.city, p.country].filter(Boolean).join(', ');
-                                const row   = document.createElement('button');
-                                row.type = 'button';
-                                row.className = 'w-full px-3 py-2 text-left hover:bg-forest-900 text-xs text-neutral-300 transition block truncate border-b border-forest-900/40';
-                                row.innerHTML = `<i class="fa-solid fa-location-dot text-bronze-500 mr-2 text-[10px]"></i><span>${escapeHTML(label)}</span>`;
-                                row.addEventListener('click', () => onSelect([feat.geometry.coordinates[1], feat.geometry.coordinates[0]], label));
-                                dropdown.appendChild(row);
-                            });
-                        } else dropdown.classList.add('hidden');
-                    } catch (err) { console.error("Autocomplete error:", err); }
-                }, 300);
+                const q = input.value.trim();
+                clearBtn?.classList.toggle('hidden', !input.value);
+                // Text geändert: bisherige Auswahl gilt nicht mehr
+                onSelect(null);
+                setAddressConfirm(confirmId, q.length >= 2 ? 'Bitte einen Vorschlag antippen, damit die Entfernung stimmt.' : '', false);
+                if (q.length < 2) { hide(); return; }
+                if (placeSearchCache.has(q.toLowerCase())) { run(q); return; }   // sofort aus dem Cache
+                timer = setTimeout(() => run(q), 180);
             });
-            document.addEventListener('click', e => { if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.add('hidden'); });
+            input.addEventListener('focus', () => {
+                const q = input.value.trim();
+                if (q.length >= 2 && dropdown.children.length && q === lastQuery) dropdown.classList.remove('hidden');
+            });
+            // Enter übernimmt den ersten Vorschlag statt das Formular abzuschicken
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && !dropdown.classList.contains('hidden')) {
+                    const first = placeSearchCache.get(input.value.trim().toLowerCase())?.[0];
+                    if (first) { e.preventDefault(); choose(first); }
+                }
+            });
+            clearBtn?.addEventListener('click', () => {
+                input.value = '';
+                clearBtn.classList.add('hidden');
+                hide();
+                setAddressConfirm(confirmId, '', false);
+                onSelect(null);
+                input.focus();
+            });
+            document.addEventListener('click', e => { if (!input.contains(e.target) && !dropdown.contains(e.target)) hide(); });
         }
 
         function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
@@ -1824,10 +2045,13 @@
                 const el = document.createElement('div');
                 el.className = "break-inside-avoid bg-forest-900/20 border border-forest-900/40 hover:border-bronze-500/30 rounded-2xl overflow-hidden p-3 space-y-2 mb-3 shadow-md relative cursor-pointer transition duration-155 hover:scale-[1.01]";
                 el.onclick = e => { if (e.target.closest('button')) return; window.openLightbox(memory.id); };
+                const editBtn = canEditMemory(trip, memory)
+                    ? `<button onclick="window.openEditMemory('${memory.id}')" title="Bearbeiten" class="text-neutral-500 hover:text-bronze-400 text-[10px] transition"><i class="fa-solid fa-pen"></i></button>`
+                    : '';
                 if (memory.type === 'note') {
-                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">Gedanke${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                    el.innerHTML = `<p class="text-xs text-neutral-200 leading-relaxed font-sans italic">"${escapeHTML(memory.text)}"</p><div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">Gedanke${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}<button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></span></div>`;
                 } else {
-                    el.innerHTML = `<img src="${memory.image}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">📸 Foto${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></div>`;
+                    el.innerHTML = `<img src="${memory.image}" class="w-full h-auto rounded-xl select-none object-cover shadow-inner bg-forest-950 max-h-48" alt="Memory">${memory.text ? `<p class="text-[10px] text-neutral-300 leading-relaxed font-sans italic">${escapeHTML(memory.text)}</p>` : ''}<div class="flex items-center justify-between pt-1 border-t border-forest-900/40"><span class="text-[8px] text-bronze-400 uppercase tracking-wider font-display font-semibold flex items-center gap-1">📸 Foto${memory.author ? `<span class="text-neutral-500 normal-case">· ${escapeHTML(memory.author)}</span>` : ''}</span><span class="flex items-center gap-3">${editBtn}<button onclick="window.deleteMemory('${memory.id}')" class="text-neutral-500 hover:text-rose-500 text-[10px] transition"><i class="fa-solid fa-trash-can"></i></button></span></div>`;
                 }
                 grid.appendChild(el);
             });
